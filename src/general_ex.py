@@ -50,7 +50,7 @@ def run_general_experiment(
     start = time()
     baseline_tm.fit(X_train, Y_train, epochs=student_epochs)
     end = time()
-    print(f'Teacher training time: {end-start:.2f} s')
+    print(f'Baseline training time: {end-start:.2f} s')
 
     #evaluate Teacher training and validation accuracy
     acc_train_baseline = 100*(baseline_tm.predict(X_train) == Y_train).mean()
