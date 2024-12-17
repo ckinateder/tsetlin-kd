@@ -8,6 +8,7 @@ Original file is located at
 """
 from pyTsetlinMachineParallel.tm import MultiClassTsetlinMachine
 from tensorflow.keras.datasets import mnist, cifar10
+from time import time
 
 (X_train, Y_train), (X_val, Y_val) = mnist.load_data()
 
@@ -52,7 +53,10 @@ student_epochs = 60
 #create TM-1
 teacher_tm = MultiClassTsetlinMachine(teacher_num_clauses, teacher_T, teacher_s, number_of_state_bits=8)
 #train TM-1 on the original dataset
+start = time()
 teacher_tm.fit(X_train, Y_train, epochs=teacher_epochs)
+end = time()
+print(f'TM-1 training time: {end-start} s')
 
 #evaluate TM-1 training and validation accuracy
 acc_train_1 = 100*(teacher_tm.predict(X_train) == Y_train).mean()
@@ -66,7 +70,10 @@ print('TM-1 validation accuracy (100 training epochs): ', acc_val_1)
 student_tm = MultiClassTsetlinMachine(student_num_clauses, student_T, student_s, number_of_state_bits=8)
 #tune TM-2 using as an input TM-1 clause outputs
 #tm.transform method returns raw TM clause outputs corresponding to the input dataset
+start = time()
 student_tm.fit(teacher_tm.transform(X_train), Y_train, epochs=student_epochs)
+end = time()
+print(f'TM-2 training time: {end-start} s')
 
 #evaluate TM-2 training and validation accuracy; notice how is the input defined
 acc_train_2 = 100*(student_tm.predict(teacher_tm.transform(X_train)) == Y_train).mean()
