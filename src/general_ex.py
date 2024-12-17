@@ -7,40 +7,41 @@ Original file is located at
     https://colab.research.google.com/drive/1itcZohE6OlXICa9NXAiXn7w1tMeU4paY
 """
 from pyTsetlinMachineParallel.tm import MultiClassTsetlinMachine
-from tensorflow.keras.datasets import mnist
+from tensorflow.keras.datasets import mnist, fashion_mnist
 import numpy as np
 from time import time
 
-def run_mnist(
-    teacher_num_clauses = 400,
-    T = 10,
-    s = 5,
-    teacher_epochs = 60,
-    student_num_clauses = 100,
-    student_epochs = 60
+def run_general_experiment(
+    X_train, Y_train, X_val, Y_val,
+    experiment_name,
+    params = {
+        "teacher_num_clauses": 400,
+        "T": 10,
+        "s": 5,
+        "teacher_epochs": 60,
+        "student_num_clauses": 100,
+        "student_epochs": 60
+    },
 ):
-    print("Running MNIST")
-    args = {
-        "teacher_num_clauses": teacher_num_clauses,
-        "T": T,
-        "s": s,
-        "teacher_epochs": teacher_epochs,
-        "student_num_clauses": student_num_clauses,
-        "student_epochs": student_epochs
-    }
-    print(args)
+    print(f"Running {experiment_name}")
+    print(params)
+    assert len(X_train) == len(Y_train)
+    assert len(X_val) == len(Y_val)
 
-    """### Load MNIST data"""
-    (X_train, Y_train), (X_val, Y_val) = mnist.load_data()
-    # Data booleanization
-    X_train = np.where(X_train > 75, 1, 0)
-    X_val = np.where(X_val > 75, 1, 0)
+    assert "teacher_num_clauses" in params
+    assert "T" in params
+    assert "s" in params
+    assert "teacher_epochs" in params
+    assert "student_num_clauses" in params
+    assert "student_epochs" in params
 
-    # Input data flattening
-    X_train = X_train.reshape(X_train.shape[0], 28*28)
-    X_val = X_val.reshape(X_val.shape[0], 28*28)
-    Y_train = Y_train.flatten()
-    Y_val = Y_val.flatten()
+    teacher_num_clauses = params["teacher_num_clauses"]
+    T = params["T"]
+    s = params["s"]
+    teacher_epochs = params["teacher_epochs"]
+    student_num_clauses = params["student_num_clauses"]
+    student_epochs = params["student_epochs"]
+
 
     """### Train the baseline student model"""
     # create student but don't train on teacher's output
@@ -93,7 +94,8 @@ def run_mnist(
 
     """### View Accuracy"""
     results = {
-        "args": args,
+        "params": params,
+        "experiment_name": experiment_name,
         "acc_train_baseline": acc_train_baseline,
         "acc_val_baseline": acc_val_baseline,
         "acc_train_teacher": acc_train_teacher,
@@ -103,7 +105,7 @@ def run_mnist(
     }
 
     #evaluate Teacher training and validation accuracy
-    print(f"\nResults for MNIST:")
+    print(f"\nResults for {experiment_name}:")
     print(f"Teacher num clauses: {teacher_num_clauses}, student and baseline num clauses: {student_num_clauses}, T: {T}, s: {s}")
     print(f"Student is trained on teacher's output, baseline is trained on original data")
     print("Training accuracy:")
@@ -125,4 +127,30 @@ def run_mnist(
 
 
 if __name__ == '__main__':
-    run_mnist()
+    """### Load MNIST data"""
+    (X_train, Y_train), (X_val, Y_val) = mnist.load_data()
+    # Data booleanization
+    X_train = np.where(X_train > 75, 1, 0)
+    X_val = np.where(X_val > 75, 1, 0)
+
+    # Input data flattening
+    X_train = X_train.reshape(X_train.shape[0], 28*28)
+    X_val = X_val.reshape(X_val.shape[0], 28*28)
+    Y_train = Y_train.flatten()
+    Y_val = Y_val.flatten()
+
+    run_general_experiment(X_train, Y_train, X_val, Y_val, "MNIST")
+
+    """### Load Fashion MNIST data"""
+    (X_train, Y_train), (X_val, Y_val) = fashion_mnist.load_data()
+    # Data booleanization
+    X_train = np.where(X_train > 75, 1, 0)
+    X_val = np.where(X_val > 75, 1, 0)
+    
+    # Input data flattening
+    X_train = X_train.reshape(X_train.shape[0], 28*28)
+    X_val = X_val.reshape(X_val.shape[0], 28*28)
+    Y_train = Y_train.flatten()
+    Y_val = Y_val.flatten()
+
+    run_general_experiment(X_train, Y_train, X_val, Y_val, "Fashion MNIST")
