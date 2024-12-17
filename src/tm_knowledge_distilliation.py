@@ -8,6 +8,7 @@ Original file is located at
 """
 from pyTsetlinMachineParallel.tm import MultiClassTsetlinMachine
 from tensorflow.keras.datasets import mnist, cifar10
+import numpy as np
 from time import time
 
 (X_train, Y_train), (X_val, Y_val) = mnist.load_data()
@@ -26,7 +27,6 @@ for i in range(0,50):
 """
 
 # Data booleanization
-import numpy as np
 X_train = np.where(X_train > 75, 1, 0)
 X_val = np.where(X_val > 75, 1, 0)
 
@@ -61,8 +61,8 @@ print(f'TM-1 training time: {end-start:.2f} s')
 #evaluate TM-1 training and validation accuracy
 acc_train_1 = 100*(teacher_tm.predict(X_train) == Y_train).mean()
 acc_val_1 = 100*(teacher_tm.predict(X_val) == Y_val).mean()
-print('TM-1 training accuracy (100 training epochs):   ', acc_train_1)
-print('TM-1 validation accuracy (100 training epochs): ', acc_val_1)
+print(f'TM-1 training accuracy ({teacher_epochs} training epochs): {acc_train_1:.2f}%')
+print(f'TM-1 validation accuracy ({teacher_epochs} training epochs): {acc_val_1:.2f}%')
 
 """### Train the student model from the teacher model"""
 
@@ -78,13 +78,13 @@ print(f'TM-2 training time: {end-start:.2f} s')
 #evaluate TM-2 training and validation accuracy; notice how is the input defined
 acc_train_2 = 100*(student_tm.predict(teacher_tm.transform(X_train)) == Y_train).mean()
 acc_val_2 = 100*(student_tm.predict(teacher_tm.transform(X_val)) == Y_val).mean()
-print('TM-2 training accuracy (100 tuning epochs):   ', acc_train_2)
-print('TM-2 validation accuracy (100 tuning epochs): ', acc_val_2)
+print(f'TM-2 training accuracy (100 tuning epochs):   {acc_train_2:.2f}%')
+print(f'TM-2 validation accuracy (100 tuning epochs): {acc_val_2:.2f}%')
 
 """### View Accuracy"""
 
 #evaluate TM-1 training and validation accuracy
-print(f'Teacher training accuracy ({teacher_epochs} epochs):   ', acc_train_1)
-print(f'Student training accuracy ({student_epochs} epochs):   ', acc_train_2)
-print(f'Teacher validation accuracy ({teacher_epochs} epochs): ', acc_val_1)
-print(f'Student validation accuracy ({student_epochs} epochs): ', acc_val_2)
+print(f'Teacher training accuracy ({teacher_epochs} epochs): {acc_train_1:.2f}%')
+print(f'Student training accuracy ({student_epochs} epochs): {acc_train_2:.2f}%')
+print(f'Teacher validation accuracy ({teacher_epochs} epochs): {acc_val_1:.2f}%')
+print(f'Student validation accuracy ({student_epochs} epochs): {acc_val_2:.2f}%')
