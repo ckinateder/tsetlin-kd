@@ -92,6 +92,15 @@ def run_mnist(
 
 
     """### View Accuracy"""
+    results = {
+        "args": args,
+        "acc_train_baseline": acc_train_baseline,
+        "acc_val_baseline": acc_val_baseline,
+        "acc_train_teacher": acc_train_teacher,
+        "acc_val_teacher": acc_val_teacher,
+        "acc_train_student": acc_train_student,
+        "acc_val_student": acc_val_student
+    }
 
     #evaluate Teacher training and validation accuracy
     print(f"\nResults for MNIST:")
