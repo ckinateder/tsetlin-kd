@@ -56,7 +56,7 @@ teacher_tm = MultiClassTsetlinMachine(teacher_num_clauses, teacher_T, teacher_s,
 start = time()
 teacher_tm.fit(X_train, Y_train, epochs=teacher_epochs)
 end = time()
-print(f'TM-1 training time: {end-start} s')
+print(f'TM-1 training time: {end-start:.2f} s')
 
 #evaluate TM-1 training and validation accuracy
 acc_train_1 = 100*(teacher_tm.predict(X_train) == Y_train).mean()
@@ -73,7 +73,7 @@ student_tm = MultiClassTsetlinMachine(student_num_clauses, student_T, student_s,
 start = time()
 student_tm.fit(teacher_tm.transform(X_train), Y_train, epochs=student_epochs)
 end = time()
-print(f'TM-2 training time: {end-start} s')
+print(f'TM-2 training time: {end-start:.2f} s')
 
 #evaluate TM-2 training and validation accuracy; notice how is the input defined
 acc_train_2 = 100*(student_tm.predict(teacher_tm.transform(X_train)) == Y_train).mean()
