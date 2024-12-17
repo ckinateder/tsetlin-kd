@@ -50,41 +50,41 @@ student_epochs = 60
 
 """### Train the teacher model"""
 
-#create TM-1
+#create Teacher
 teacher_tm = MultiClassTsetlinMachine(teacher_num_clauses, teacher_T, teacher_s, number_of_state_bits=8)
-#train TM-1 on the original dataset
+#train Teacher on the original dataset
 start = time()
 teacher_tm.fit(X_train, Y_train, epochs=teacher_epochs)
 end = time()
-print(f'TM-1 training time: {end-start:.2f} s')
+print(f'Teacher training time: {end-start:.2f} s')
 
-#evaluate TM-1 training and validation accuracy
+#evaluate Teacher training and validation accuracy
 acc_train_1 = 100*(teacher_tm.predict(X_train) == Y_train).mean()
 acc_val_1 = 100*(teacher_tm.predict(X_val) == Y_val).mean()
-print(f'TM-1 training accuracy ({teacher_epochs} training epochs): {acc_train_1:.2f}%')
-print(f'TM-1 validation accuracy ({teacher_epochs} training epochs): {acc_val_1:.2f}%')
+print(f'Teacher training accuracy ({teacher_epochs} training epochs):   {acc_train_1:.2f}%')
+print(f'Teacher validation accuracy ({teacher_epochs} training epochs): {acc_val_1:.2f}%')
 
 """### Train the student model from the teacher model"""
 
-#create TM-2
+#create Student
 student_tm = MultiClassTsetlinMachine(student_num_clauses, student_T, student_s, number_of_state_bits=8)
-#tune TM-2 using as an input TM-1 clause outputs
+#tune Student using as an input Teacher clause outputs
 #tm.transform method returns raw TM clause outputs corresponding to the input dataset
 start = time()
 student_tm.fit(teacher_tm.transform(X_train), Y_train, epochs=student_epochs)
 end = time()
-print(f'TM-2 training time: {end-start:.2f} s')
+print(f'Student training time: {end-start:.2f} s')
 
-#evaluate TM-2 training and validation accuracy; notice how is the input defined
+#evaluate Student training and validation accuracy; notice how is the input defined
 acc_train_2 = 100*(student_tm.predict(teacher_tm.transform(X_train)) == Y_train).mean()
 acc_val_2 = 100*(student_tm.predict(teacher_tm.transform(X_val)) == Y_val).mean()
-print(f'TM-2 training accuracy (100 tuning epochs):   {acc_train_2:.2f}%')
-print(f'TM-2 validation accuracy (100 tuning epochs): {acc_val_2:.2f}%')
+print(f'Student training accuracy (100 tuning epochs):   {acc_train_2:.2f}%')
+print(f'Student validation accuracy (100 tuning epochs): {acc_val_2:.2f}%')
 
 """### View Accuracy"""
 
-#evaluate TM-1 training and validation accuracy
-print(f'Teacher training accuracy ({teacher_epochs} epochs): {acc_train_1:.2f}%')
-print(f'Student training accuracy ({student_epochs} epochs): {acc_train_2:.2f}%')
+#evaluate Teacher training and validation accuracy
+print(f'Teacher training accuracy ({teacher_epochs} epochs):   {acc_train_1:.2f}%')
+print(f'Student training accuracy ({student_epochs} epochs):   {acc_train_2:.2f}%')
 print(f'Teacher validation accuracy ({teacher_epochs} epochs): {acc_val_1:.2f}%')
 print(f'Student validation accuracy ({student_epochs} epochs): {acc_val_2:.2f}%')
