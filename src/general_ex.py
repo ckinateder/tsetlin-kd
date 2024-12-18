@@ -11,15 +11,19 @@ from tensorflow.keras.datasets import mnist, fashion_mnist
 import numpy as np
 from time import time
 
+# set seeds
+np.random.seed(0)
+
+
 def run_general_experiment(
     X_train, Y_train, X_val, Y_val,
     experiment_name,
     params = {
         "teacher_num_clauses": 400,
+        "student_num_clauses": 200,
         "T": 10,
         "s": 5,
         "teacher_epochs": 60,
-        "student_num_clauses": 100,
         "student_epochs": 60
     },
 ):
@@ -34,6 +38,7 @@ def run_general_experiment(
     assert "teacher_epochs" in params
     assert "student_num_clauses" in params
     assert "student_epochs" in params
+    assert params["teacher_num_clauses"] > params["student_num_clauses"], "Student clauses should be less than teacher clauses"
 
     teacher_num_clauses = params["teacher_num_clauses"]
     T = params["T"]
@@ -41,6 +46,7 @@ def run_general_experiment(
     teacher_epochs = params["teacher_epochs"]
     student_num_clauses = params["student_num_clauses"]
     student_epochs = params["student_epochs"]
+    combined_epochs = teacher_epochs + student_epochs
 
 
     """### Train the baseline student model"""
@@ -48,15 +54,15 @@ def run_general_experiment(
     print(f"Creating a baseline student with {student_num_clauses} clauses and training on original data")
     baseline_tm = MultiClassTsetlinMachine(student_num_clauses, T, s, number_of_state_bits=8)
     start = time()
-    baseline_tm.fit(X_train, Y_train, epochs=student_epochs)
+    baseline_tm.fit(X_train, Y_train, epochs=combined_epochs)
     end = time()
     print(f'Baseline training time: {end-start:.2f} s')
 
     #evaluate Teacher training and validation accuracy
     acc_train_baseline = 100*(baseline_tm.predict(X_train) == Y_train).mean()
     acc_val_baseline = 100*(baseline_tm.predict(X_val) == Y_val).mean()
-    print(f'Baseline training accuracy ({student_epochs} training epochs):   {acc_train_baseline:.2f}%')
-    print(f'Baseline validation accuracy ({student_epochs} training epochs): {acc_val_baseline:.2f}%')
+    print(f'Baseline training accuracy ({combined_epochs} training epochs):   {acc_train_baseline:.2f}%')
+    print(f'Baseline validation accuracy ({combined_epochs} training epochs): {acc_val_baseline:.2f}%')
 
     """### Train the teacher model"""
 
@@ -78,7 +84,7 @@ def run_general_experiment(
     """### Train the student model from the teacher model"""
 
     #create Student
-    print(f"Creating student with {student_num_clauses} clauses and training on teacher's output")
+    print(f"Creating student with {student_num_clauses} clauses and training on teacher's output (teacher has trained {teacher_epochs} epochs)")
     student_tm = MultiClassTsetlinMachine(student_num_clauses, T, s, number_of_state_bits=8)
     start = time()
     student_tm.fit(teacher_tm.transform(X_train), Y_train, epochs=student_epochs)
@@ -88,9 +94,15 @@ def run_general_experiment(
     #evaluate Student training and validation accuracy; notice how is the input defined
     acc_train_student = 100*(student_tm.predict(teacher_tm.transform(X_train)) == Y_train).mean()
     acc_val_student = 100*(student_tm.predict(teacher_tm.transform(X_val)) == Y_val).mean()
-    print(f'Student training accuracy (100 tuning epochs):   {acc_train_student:.2f}%')
-    print(f'Student validation accuracy (100 tuning epochs): {acc_val_student:.2f}%')
+    print(f'Student training accuracy ({student_epochs} training epochs):   {acc_train_student:.2f}%')
+    print(f'Student validation accuracy ({student_epochs} training epochs): {acc_val_student:.2f}%')
 
+    """### Train the teacher model more with the student epochs"""
+    print(f"Training teacher for {student_epochs} more epochs (total {combined_epochs})")
+    start = time()
+    teacher_tm.fit(X_train, Y_train, epochs=student_epochs)
+    end = time()
+    print(f'Teacher training time: {end-start:.2f} s')
 
     """### View Accuracy"""
     results = {
@@ -109,13 +121,13 @@ def run_general_experiment(
     print(f"Teacher num clauses: {teacher_num_clauses}, student and baseline num clauses: {student_num_clauses}, T: {T}, s: {s}")
     print(f"Student is trained on teacher's output, baseline is trained on original data")
     print("Training accuracy:")
-    print(f'- Baseline training accuracy ({student_epochs} epochs):   {acc_train_baseline:.2f}%')
-    print(f'- Teacher training accuracy ({teacher_epochs} epochs):    {acc_train_teacher:.2f}%')
-    print(f'- Student training accuracy ({student_epochs} epochs):    {acc_train_student:.2f}%')
+    print(f'- Baseline training accuracy ({combined_epochs} epochs):   {acc_train_baseline:.2f}%')
+    print(f'- Teacher training accuracy ({teacher_epochs}+{student_epochs} epochs):    {acc_train_teacher:.2f}%')
+    print(f'- Student training accuracy ({teacher_epochs}+{student_epochs} epochs):    {acc_train_student:.2f}%')
     print("Validation accuracy:")
-    print(f'- Baseline validation accuracy ({student_epochs} epochs): {acc_val_baseline:.2f}%')
-    print(f'- Teacher validation accuracy ({teacher_epochs} epochs):  {acc_val_teacher:.2f}%')
-    print(f'- Student validation accuracy ({student_epochs} epochs):  {acc_val_student:.2f}%')
+    print(f'- Baseline validation accuracy ({combined_epochs} epochs): {acc_val_baseline:.2f}%')
+    print(f'- Teacher validation accuracy ({teacher_epochs}+{student_epochs} epochs):  {acc_val_teacher:.2f}%')
+    print(f'- Student validation accuracy ({teacher_epochs}+{student_epochs} epochs):  {acc_val_student:.2f}%')
 
 
     # compute the difference in accuracy and parameter count
