@@ -1,11 +1,12 @@
 
 from pyTsetlinMachineParallel.tm import MultiClassTsetlinMachine
-from tensorflow.keras.datasets import mnist, fashion_mnist
+from tensorflow.keras.datasets import mnist, fashion_mnist, cifar10
 import numpy as np
 from time import time
 import pandas as pd
 import os
 import matplotlib.pyplot as plt
+import cv2
 
 # set seeds
 np.random.seed(0)
@@ -19,8 +20,8 @@ def run_detailed_experiment(
         "student_num_clauses": 200,
         "T": 10,
         "s": 5,
-        "teacher_epochs": 30,
-        "student_epochs": 30
+        "teacher_epochs": 60,
+        "student_epochs": 60
     },
 ) -> pd.DataFrame:
     """
@@ -169,22 +170,81 @@ def run_detailed_experiment(
 
 
 if __name__ == "__main__":
+    """### Load CIFAR-10 data"""
+    (X_train, Y_train), (X_test, Y_test) = cifar10.load_data()
+
+    # Preprocess data
+    X_train = np.copy(X_train)
+    X_test = np.copy(X_test)
+
+    for i in range(X_train.shape[0]):
+        for j in range(X_train.shape[3]):
+                X_train[i,:,:,j] = cv2.adaptiveThreshold(X_train[i,:,:,j], 1, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2) 
+
+    for i in range(X_test.shape[0]):
+        for j in range(X_test.shape[3]):
+            X_test[i,:,:,j] = cv2.adaptiveThreshold(X_test[i,:,:,j], 1, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+
+    X_train = X_train.reshape(X_train.shape[0], -1)
+    X_test = X_test.reshape(X_test.shape[0], -1)
+
+    Y_train = Y_train.reshape(Y_train.shape[0])
+    Y_test = Y_test.reshape(Y_test.shape[0])
+
+    # Input data flattening    
+    X_train = X_train.reshape(X_train.shape[0], 32*32, 3)
+    X_test = X_test.reshape(X_test.shape[0], 32*32, 3)
+    Y_train = Y_train.flatten()
+    Y_test = Y_test.flatten()
+
+    cifar10_params = {
+        "teacher_num_clauses": 20000,
+        "student_num_clauses": 2000,
+        "T": 48000,
+        "s": 10,
+        "teacher_epochs": 45,
+        "student_epochs": 45
+    }
+
+    cifar10_results = run_detailed_experiment(
+        X_train, Y_train, X_test, Y_test, "CIFAR-10", cifar10_params)
+    cifar10_results.to_csv(os.path.join(
+        "experiments", "cifar10_results.csv"))
+    print(cifar10_results)
+    
     """### Load Fashion MNIST data"""
-    (X_train, Y_train), (X_val, Y_val) = fashion_mnist.load_data()
+    (X_train, Y_train), (X_test, Y_test) = fashion_mnist.load_data()
     # Data booleanization
     X_train = np.where(X_train > 75, 1, 0)
-    X_val = np.where(X_val > 75, 1, 0)
+    X_test = np.where(X_test > 75, 1, 0)
 
     # Input data flattening
     X_train = X_train.reshape(X_train.shape[0], 28*28)
-    X_val = X_val.reshape(X_val.shape[0], 28*28)
+    X_test = X_test.reshape(X_test.shape[0], 28*28)
     Y_train = Y_train.flatten()
-    Y_val = Y_val.flatten()
+    Y_test = Y_test.flatten()
 
     fashion_mnist_results = run_detailed_experiment(
-        X_train, Y_train, X_val, Y_val, "MNIST")
+        X_train, Y_train, X_test, Y_test, "MNIST")
     fashion_mnist_results.to_csv(os.path.join(
         "experiments", "fashion_mnist_results.csv"))
     print(fashion_mnist_results)
+    
+    """### Load MNIST data"""
 
-    # plot results
+    (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
+    # Data booleanization
+    X_train = np.where(X_train > 75, 1, 0)
+    X_test = np.where(X_test > 75, 1, 0)
+
+    # Input data flattening
+    X_train = X_train.reshape(X_train.shape[0], 28*28)
+    X_test = X_test.reshape(X_test.shape[0], 28*28)
+    Y_train = Y_train.flatten()
+    Y_test = Y_test.flatten()
+
+    mnist_results = run_detailed_experiment(
+        X_train, Y_train, X_test, Y_test, "MNIST")
+    mnist_results.to_csv(os.path.join(
+        "experiments", "mnist_results.csv"))
+    print(mnist_results)

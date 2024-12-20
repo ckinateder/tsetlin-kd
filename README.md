@@ -29,3 +29,11 @@ E0000 00:00:1734444480.447230      21 cuda_blas.cc:1418] Unable to register cuBL
 2024-12-17 14:08:00.456452: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
 To enable the following instructions: AVX2 AVX_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
 ```
+
+## Usage
+
+### Run the detailed example
+
+```bash
+python3 src/detailed_ex.py
+```
