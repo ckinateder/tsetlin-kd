@@ -198,7 +198,7 @@ if __name__ == "__main__":
     Y_test = Y_test.flatten()
 
     cifar10_params = {
-        "teacher_num_clauses": 20000,
+        "teacher_num_clauses": 40000,
         "student_num_clauses": 2000,
         "T": 48000,
         "s": 10,

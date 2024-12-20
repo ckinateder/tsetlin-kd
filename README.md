@@ -13,7 +13,7 @@ docker build -t tsetlin-kd .
 ### Run Docker Container
 
 ```bash
-docker run -it --rm  -v $(pwd):/app tsetlin-kd bash
+docker run -it --rm  -v $(pwd):/app --name tskd tsetlin-kd bash
 ```
 
 Ignore the following errors. We are not using CUDA.
