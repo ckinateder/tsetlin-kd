@@ -4,7 +4,7 @@ FROM python:3.10.16-slim-bullseye
 RUN apt update && apt install -y build-essential git libgl1
 
 # env
-ENV OMP_NUM_THREADS=12
+ENV OMP_NUM_THREADS=20
 
 # pip requirements
 COPY requirements.txt /app/requirements.txt
