@@ -176,20 +176,10 @@ if __name__ == "__main__":
     # Preprocess data
     X_train = np.copy(X_train)
     X_test = np.copy(X_test)
-
-    for i in range(X_train.shape[0]):
-        for j in range(X_train.shape[3]):
-                X_train[i,:,:,j] = cv2.adaptiveThreshold(X_train[i,:,:,j], 1, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2) 
-
-    for i in range(X_test.shape[0]):
-        for j in range(X_test.shape[3]):
-            X_test[i,:,:,j] = cv2.adaptiveThreshold(X_test[i,:,:,j], 1, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-
-    X_train = X_train.reshape(X_train.shape[0], -1)
-    X_test = X_test.reshape(X_test.shape[0], -1)
-
-    Y_train = Y_train.reshape(Y_train.shape[0])
-    Y_test = Y_test.reshape(Y_test.shape[0])
+    
+    # normalize data
+    X_train = X_train / 255.0
+    X_test = X_test / 255.0
 
     # Input data flattening    
     X_train = X_train.reshape(X_train.shape[0], 32*32, 3)
@@ -198,9 +188,9 @@ if __name__ == "__main__":
     Y_test = Y_test.flatten()
 
     cifar10_params = {
-        "teacher_num_clauses": 40000,
-        "student_num_clauses": 2000,
-        "T": 48000,
+        "teacher_num_clauses": 800,
+        "student_num_clauses": 200,
+        "T": 5000,
         "s": 10,
         "teacher_epochs": 45,
         "student_epochs": 45
@@ -225,7 +215,7 @@ if __name__ == "__main__":
     Y_test = Y_test.flatten()
 
     fashion_mnist_results = run_detailed_experiment(
-        X_train, Y_train, X_test, Y_test, "MNIST")
+        X_train, Y_train, X_test, Y_test, "Fashion MNIST")
     fashion_mnist_results.to_csv(os.path.join(
         "experiments", "fashion_mnist_results.csv"))
     print(fashion_mnist_results)
