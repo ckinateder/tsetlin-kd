@@ -8,7 +8,7 @@ ENV OMP_NUM_THREADS=20
 
 # pip requirements
 COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir --upgrade pip ipykernel
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # set workdir
