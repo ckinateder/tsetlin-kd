@@ -87,7 +87,7 @@ def run_detailed_experiment(
 
     """### Train the baseline teacher model"""
     print(
-        f"Creating a baseline teacher with {student_num_clauses} clauses and training on original data")
+        f"Creating a baseline teacher with {teacher_num_clauses} clauses and training on original data")
     baseline_teacher_tm = MultiClassTsetlinMachine(
         teacher_num_clauses, T, s, number_of_state_bits=8)
 
@@ -171,6 +171,7 @@ def run_detailed_experiment(
 
 if __name__ == "__main__":
     """### Load CIFAR-10 data"""
+    """
     (X_train, Y_train), (X_test, Y_test) = cifar10.load_data()
 
     # Preprocess data
@@ -201,25 +202,7 @@ if __name__ == "__main__":
     cifar10_results.to_csv(os.path.join(
         "experiments", "cifar10_results.csv"))
     print(cifar10_results)
-    
-    """### Load Fashion MNIST data"""
-    (X_train, Y_train), (X_test, Y_test) = fashion_mnist.load_data()
-    # Data booleanization
-    X_train = np.where(X_train > 75, 1, 0)
-    X_test = np.where(X_test > 75, 1, 0)
-
-    # Input data flattening
-    X_train = X_train.reshape(X_train.shape[0], 28*28)
-    X_test = X_test.reshape(X_test.shape[0], 28*28)
-    Y_train = Y_train.flatten()
-    Y_test = Y_test.flatten()
-
-    fashion_mnist_results = run_detailed_experiment(
-        X_train, Y_train, X_test, Y_test, "Fashion MNIST")
-    fashion_mnist_results.to_csv(os.path.join(
-        "experiments", "fashion_mnist_results.csv"))
-    print(fashion_mnist_results)
-    
+    """
     """### Load MNIST data"""
 
     (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
@@ -234,7 +217,41 @@ if __name__ == "__main__":
     Y_test = Y_test.flatten()
 
     mnist_results = run_detailed_experiment(
-        X_train, Y_train, X_test, Y_test, "MNIST")
+        X_train, Y_train, X_test, Y_test, "MNIST", {
+                "teacher_num_clauses": 600,
+                "student_num_clauses": 100,
+                "T": 10,
+                "s": 5,
+                "teacher_epochs": 10,
+                "student_epochs": 20
+            })
     mnist_results.to_csv(os.path.join(
         "experiments", "mnist_results.csv"))
     print(mnist_results)
+
+    """### Load Fashion MNIST data"""
+    (X_train, Y_train), (X_test, Y_test) = fashion_mnist.load_data()
+    # Data booleanization
+    X_train = np.where(X_train > 75, 1, 0)
+    X_test = np.where(X_test > 75, 1, 0)
+
+    # Input data flattening
+    X_train = X_train.reshape(X_train.shape[0], 28*28)
+    X_test = X_test.reshape(X_test.shape[0], 28*28)
+    Y_train = Y_train.flatten()
+    Y_test = Y_test.flatten()
+
+    fashion_mnist_results = run_detailed_experiment(
+            X_train, Y_train, X_test, Y_test, "Fashion MNIST", {
+                "teacher_num_clauses": 600,
+                "student_num_clauses": 100,
+                "T": 10,
+                "s": 5,
+                "teacher_epochs": 10,
+                "student_epochs": 20
+            })
+    
+    fashion_mnist_results.to_csv(os.path.join(
+        "experiments", "fashion_mnist_results.csv"))
+    print(fashion_mnist_results)
+    
