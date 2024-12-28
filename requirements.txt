@@ -53,7 +53,7 @@ pure_eval==0.2.3
 Pygments==2.18.0
 pyparsing==3.2.0
 python-dateutil==2.9.0.post0
-pyTsetlinMachineParallel @ git+https://github.com/cair/pyTsetlinMachineParallel.git@0a9964b2a6dfccb137e5b6fafe4706ef86e843fd
+pyTsetlinMachineParallel @ git+https://github.com/ckinateder/pyTsetlinMachineParallel.git
 pytz==2024.2
 pyzmq==26.2.0
 requests==2.32.3

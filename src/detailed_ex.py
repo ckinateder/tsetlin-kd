@@ -72,7 +72,8 @@ def run_detailed_experiment(
         stop_training = time()
 
         start_testing = time()
-        result = 100*(baseline_distilled_tm.predict(X_test) == Y_test).mean()
+        prediction, class_sums = baseline_distilled_tm.predict_class_sums_2d(X_test)
+        result = 100*(prediction == Y_test).mean()
         stop_testing = time()
 
         results.loc[i, "acc_test_student"] = result
@@ -171,7 +172,7 @@ def run_detailed_experiment(
 
 if __name__ == "__main__":
     """### Load CIFAR-10 data"""
-    """
+    #"""
     (X_train, Y_train), (X_test, Y_test) = cifar10.load_data()
 
     # Preprocess data
@@ -202,7 +203,7 @@ if __name__ == "__main__":
     cifar10_results.to_csv(os.path.join(
         "experiments", "cifar10_results.csv"))
     print(cifar10_results)
-    """
+    #"""
     """### Load MNIST data"""
 
     (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
