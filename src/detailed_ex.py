@@ -1,18 +1,18 @@
 
 from pyTsetlinMachineParallel.tm import MultiClassTsetlinMachine
 from tensorflow.keras.datasets import mnist, fashion_mnist, cifar10
+from stats import entropy, normalize, joint_probs, mutual_information
 import numpy as np
 from time import time
 import pandas as pd
 import os
 import matplotlib.pyplot as plt
-import cv2
+import pdb
 
 # set seeds
 np.random.seed(0)
 
-
-def run_detailed_experiment(
+def distilled_experiment(
     X_train, Y_train, X_test, Y_test,
     experiment_name,
     params={
@@ -167,12 +167,34 @@ def run_detailed_experiment(
 
     print(f'Teacher-student training time: {end-start:.2f} s')
 
+    # calculate information transfer
+
+    # now get final prediction probabilities for teacher and distilled
+    teacher_prediction, teacher_class_sums = baseline_teacher_tm.predict_class_sums_2d(X_test)
+    student_prediction, student_class_sums = baseline_distilled_tm.predict_class_sums_2d(X_test)
+
+    # class sums are arranged by [sums] x samples
+    # output an array here by sample and then avg
+    teacher_probs = np.apply_along_axis(normalize, 1, teacher_class_sums)
+    student_probs = np.apply_along_axis(normalize, 1, student_class_sums)
+
+    # calculate entropy of each sample, into a 1D array
+    # entropy is calculated by -sum(p(x)log(p(x))) for each class for each sample
+    teacher_entropy = np.apply_along_axis(entropy, 1, teacher_probs)
+    student_entropy = np.apply_along_axis(entropy, 1, student_probs)
+
+    # assuming independence, calculate joint probabilities
+    joint_probabilities = joint_probs(teacher_probs, student_probs)
+
+    # calculate mutual information
+    mi = mutual_information(teacher_probs, student_probs, joint_probabilities)
+
     return results
 
 
 if __name__ == "__main__":
     """### Load CIFAR-10 data"""
-    #"""
+    """
     (X_train, Y_train), (X_test, Y_test) = cifar10.load_data()
 
     # Preprocess data
@@ -198,12 +220,12 @@ if __name__ == "__main__":
         "student_epochs": 45
     }
 
-    cifar10_results = run_detailed_experiment(
+    cifar10_results = distilled_experiment(
         X_train, Y_train, X_test, Y_test, "CIFAR-10", cifar10_params)
     cifar10_results.to_csv(os.path.join(
         "experiments", "cifar10_results.csv"))
     print(cifar10_results)
-    #"""
+    """
     """### Load MNIST data"""
 
     (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
@@ -217,14 +239,14 @@ if __name__ == "__main__":
     Y_train = Y_train.flatten()
     Y_test = Y_test.flatten()
 
-    mnist_results = run_detailed_experiment(
+    mnist_results = distilled_experiment(
         X_train, Y_train, X_test, Y_test, "MNIST", {
                 "teacher_num_clauses": 600,
                 "student_num_clauses": 100,
                 "T": 10,
                 "s": 5,
-                "teacher_epochs": 10,
-                "student_epochs": 20
+                "teacher_epochs": 1,
+                "student_epochs": 1
             })
     mnist_results.to_csv(os.path.join(
         "experiments", "mnist_results.csv"))
@@ -242,7 +264,7 @@ if __name__ == "__main__":
     Y_train = Y_train.flatten()
     Y_test = Y_test.flatten()
 
-    fashion_mnist_results = run_detailed_experiment(
+    fashion_mnist_results = distilled_experiment(
             X_train, Y_train, X_test, Y_test, "Fashion MNIST", {
                 "teacher_num_clauses": 600,
                 "student_num_clauses": 100,
