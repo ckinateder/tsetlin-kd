@@ -11,6 +11,10 @@ def normalize(scores):
         return np.ones_like(votes) / len(votes)
     return votes / np.sum(votes)
 
+def softmax(scores):
+    # softmax function
+    return np.exp(scores) / np.sum(np.exp(scores))
+
 # Entropy calculation
 def entropy(probs):
     # probs = [p1, p2, ..., pn], where p1 + p2 + ... + pn = 1
@@ -31,8 +35,15 @@ def joint_probs(probs_1, probs_2):
 
 # Mutual information calculation
 def mutual_information(teacher_probs, student_probs, joint_probs):
-    teacher_marginal = np.sum(joint_probs, axis=1)
-    student_marginal = np.sum(joint_probs, axis=0)
-    mi = np.sum(joint_probs * np.log((joint_probs + _OFFSET) /
-                                     (teacher_marginal[:, None] * student_marginal[None, :] + _OFFSET)))
+    """
+    I(X;Y) = H(X) - H(X|Y) = H(Y) - H(Y|X)
+    """
+    # H(X)
+    H_teacher = np.array([entropy(probs) for probs in teacher_probs])
+    # H(Y)
+    H_student = np.array([entropy(probs) for probs in student_probs])
+    # H(X|Y)
+    
+    
+
     return mi

@@ -1,13 +1,14 @@
 
 from pyTsetlinMachineParallel.tm import MultiClassTsetlinMachine
 from tensorflow.keras.datasets import mnist, fashion_mnist, cifar10
-from stats import entropy, normalize, joint_probs, mutual_information
+from stats import entropy, normalize, softmax, joint_probs, mutual_information
 import numpy as np
 from time import time
 import pandas as pd
 import os
 import matplotlib.pyplot as plt
 import pdb
+from sklearn.metrics import mutual_info_score
 
 # set seeds
 np.random.seed(0)
@@ -170,24 +171,39 @@ def distilled_experiment(
     # calculate information transfer
 
     # now get final prediction probabilities for teacher and distilled
-    teacher_prediction, teacher_class_sums = baseline_teacher_tm.predict_class_sums_2d(X_test)
+    # class sums are arranged by [sums] x samples, so shape is (num_samples, num_classes)
     student_prediction, student_class_sums = baseline_distilled_tm.predict_class_sums_2d(X_test)
+    teacher_prediction, teacher_class_sums = baseline_teacher_tm.predict_class_sums_2d(X_test)
+    distilled_prediction, distilled_class_sums = baseline_distilled_tm.predict_class_sums_2d(X_test)
 
     # class sums are arranged by [sums] x samples
     # output an array here by sample and then avg
-    teacher_probs = np.apply_along_axis(normalize, 1, teacher_class_sums)
-    student_probs = np.apply_along_axis(normalize, 1, student_class_sums)
+    print(student_class_sums)
+    student_probs = np.apply_along_axis(softmax, 1, student_class_sums)
+    teacher_probs = np.apply_along_axis(softmax, 1, teacher_class_sums)
+    distilled_probs = np.apply_along_axis(softmax, 1, distilled_class_sums)
+    print(student_probs)
 
     # calculate entropy of each sample, into a 1D array
     # entropy is calculated by -sum(p(x)log(p(x))) for each class for each sample
-    teacher_entropy = np.apply_along_axis(entropy, 1, teacher_probs)
     student_entropy = np.apply_along_axis(entropy, 1, student_probs)
+    teacher_entropy = np.apply_along_axis(entropy, 1, teacher_probs)
+    distilled_entropy = np.apply_along_axis(entropy, 1, distilled_probs)
 
     # assuming independence, calculate joint probabilities
-    joint_probabilities = joint_probs(teacher_probs, student_probs)
+    joint_probabilities = joint_probs(teacher_probs, distilled_probs)
 
     # calculate mutual information
-    mi = mutual_information(teacher_probs, student_probs, joint_probabilities)
+    mi = mutual_information(teacher_probs, distilled_probs, joint_probabilities)
+    print(f"Mutual information: {mi:.4f}")
+
+    # calculate mutual information using sklearn
+    mi_sklearn_dt = mutual_info_score(teacher_prediction, distilled_prediction)
+    mi_sklearn_ds = mutual_info_score(student_prediction, distilled_prediction)
+
+    #print(f"Mutual information: {mi:.4f}")
+    print(f"Mutual information (distilled <-> teacher) (sklearn): {mi_sklearn_dt:.4f}")
+    print(f"Mutual information (distilled <-> student) (sklearn): {mi_sklearn_ds:.4f}")
 
     return results
 
