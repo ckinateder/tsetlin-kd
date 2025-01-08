@@ -43,7 +43,7 @@ def mutual_information(teacher_probs, student_probs, joint_probs):
     # H(Y)
     H_student = np.array([entropy(probs) for probs in student_probs])
     # H(X|Y)
-    
+
     
 
-    return mi
+    return 0

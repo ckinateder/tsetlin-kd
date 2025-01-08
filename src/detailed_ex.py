@@ -9,6 +9,7 @@ import os
 import matplotlib.pyplot as plt
 import pdb
 from sklearn.metrics import mutual_info_score
+from util import save_json
 
 # set seeds
 np.random.seed(0)
@@ -24,7 +25,7 @@ def distilled_experiment(
         "teacher_epochs": 60,
         "student_epochs": 60
     },
-) -> pd.DataFrame:
+) -> dict:
     """
     Train a baseline student model with teacher_epochs + student_epochs epochs
     Train a baseline teacher model with teacher_epochs + student_epochs epochs
@@ -205,7 +206,17 @@ def distilled_experiment(
     print(f"Mutual information (distilled <-> teacher) (sklearn): {mi_sklearn_dt:.4f}")
     print(f"Mutual information (distilled <-> student) (sklearn): {mi_sklearn_ds:.4f}")
 
-    return results
+    output = {
+        "results": results.to_dict(),
+        "mutual_information": {
+            "sklearn_teacher": mi_sklearn_dt,
+            "sklearn_student": mi_sklearn_ds
+        },
+        "params": params,
+        "experiment_name": experiment_name
+    }
+
+    return output
 
 
 if __name__ == "__main__":
@@ -264,8 +275,11 @@ if __name__ == "__main__":
                 "teacher_epochs": 1,
                 "student_epochs": 1
             })
-    mnist_results.to_csv(os.path.join(
-        "experiments", "mnist_results.csv"))
+    
+    # save results to json
+    save_json(mnist_results, os.path.join(
+        "experiments", "mnist_results.json"))
+
     print(mnist_results)
 
     """### Load Fashion MNIST data"""
@@ -290,7 +304,9 @@ if __name__ == "__main__":
                 "student_epochs": 20
             })
     
-    fashion_mnist_results.to_csv(os.path.join(
-        "experiments", "fashion_mnist_results.csv"))
+    # save results to json
+    save_json(fashion_mnist_results, os.path.join(
+        "experiments", "fashion_mnist_results.json"))
+    
     print(fashion_mnist_results)
     
