@@ -266,21 +266,21 @@ if __name__ == "__main__":
     Y_train = Y_train.flatten()
     Y_test = Y_test.flatten()
 
-    mnist_results = distilled_experiment(
-        X_train, Y_train, X_test, Y_test, "MNIST", {
-                "teacher_num_clauses": 600,
-                "student_num_clauses": 100,
-                "T": 10,
-                "s": 5,
-                "teacher_epochs": 1,
-                "student_epochs": 1
-            })
-    
-    # save results to json
-    save_json(mnist_results, os.path.join(
-        "experiments", "mnist_results.json"))
+    mnist_experiments = [
+        { "teacher_num_clauses": 600, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 600, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 1000, "student_num_clauses": 300, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 1000, "student_num_clauses": 300, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+    ]
 
-    print(mnist_results)
+    for i, params in enumerate(mnist_experiments):
+        mnist_results = distilled_experiment(
+            X_train, Y_train, X_test, Y_test, f"MNIST_{i}", params)
+        save_json(mnist_results, os.path.join(
+            "experiments", f"mnist_results_{i}.json"))
+        print(mnist_results)
 
     """### Load Fashion MNIST data"""
     (X_train, Y_train), (X_test, Y_test) = fashion_mnist.load_data()
