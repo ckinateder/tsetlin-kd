@@ -32,6 +32,23 @@ def joint_probs(probs_1, probs_2):
         joint[i] = np.outer(probs_1[i], probs_2[i])
     return joint
     
+def kl_divergence(p, q):
+  """
+  Calculates the KL divergence between two probability distributions.
+
+  Args:
+    p (numpy array): The first probability distribution.
+    q (numpy array): The second probability distribution.
+
+  Returns:
+    float: The KL divergence.
+  """
+
+  # Ensure probabilities are non-zero
+  p = np.where(p == 0, 1e-10, p) 
+  q = np.where(q == 0, 1e-10, q)
+
+  return np.sum(p * np.log(p / q))
 
 # Mutual information calculation
 def mutual_information(teacher_probs, student_probs, joint_probs):

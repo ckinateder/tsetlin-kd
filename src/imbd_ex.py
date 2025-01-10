@@ -13,6 +13,16 @@ INDEX_FROM=2
 
 FEATURES=5000
 
+
+params={
+	"teacher_num_clauses": 10000,
+	"student_num_clauses": 1000,
+	"T": 80*100,
+	"s": 10.0,
+	"teacher_epochs": 10,
+	"student_epochs": 5
+}
+
 print("Downloading dataset...")
 
 train,test = keras.datasets.imdb.load_data(num_words=NUM_WORDS, index_from=INDEX_FROM)
@@ -62,7 +72,6 @@ for phrase in vocabulary.keys():
 	bit_nr += 1
 
 # Create bit representation
-
 X_train = np.zeros((train_y.shape[0], len(phrase_bit_nr)), dtype=np.uint32)
 Y_train = np.zeros(train_y.shape[0], dtype=np.uint32)
 for i in range(train_y.shape[0]):
@@ -105,16 +114,66 @@ selected_features = SKB.get_support(indices=True)
 X_train = SKB.transform(X_train)
 X_test = SKB.transform(X_test)
 
-tm = MultiClassTsetlinMachine(10000, 80*100, 10.0, weighted_clauses=True)
 
-print("\nAccuracy over 30 epochs:\n")
-for i in range(30):
+print("Training Tsetlin Machine...")
+baseline_teacher_tm = MultiClassTsetlinMachine(params["teacher_num_clauses"], 80*100, 10.0, weighted_clauses=True)
+baseline_student_tm = MultiClassTsetlinMachine(params["student_num_clauses"], 80*100, 10.0, weighted_clauses=True)
+distill_student_tm = MultiClassTsetlinMachine(params["student_num_clauses"], 80*100, 10.0, weighted_clauses=True)
+student_epochs = params["student_epochs"]
+teacher_epochs = params["teacher_epochs"]
+combined_epochs = student_epochs + teacher_epochs
+
+# Train baseline teacher
+print("Training baseline teacher...")
+for i in range(combined_epochs):
 	start_training = time()
-	tm.fit(X_train, Y_train, epochs=1, incremental=True)
+	baseline_teacher_tm.fit(X_train, Y_train, epochs=1, incremental=True)
 	stop_training = time()
 
 	start_testing = time()
-	result = 100*(tm.predict(X_test) == Y_test).mean()
+	result = 100*(baseline_teacher_tm.predict(X_test) == Y_test).mean()
 	stop_testing = time()
 
-	print("#%d Accuracy: %.2f%% Training: %.2fs Testing: %.2fs" % (i+1, result, stop_training-start_training, stop_testing-start_testing))
+	print(f"#{i+1} Accuracy: {result:.2f}% Training: {stop_training-start_training:.2f}s Testing: {stop_testing-start_testing:.2f}s")
+
+# Train baseline student
+print("Training baseline student...")
+for i in range(combined_epochs):
+	start_training = time()
+	baseline_student_tm.fit(X_train, Y_train, epochs=1, incremental=True)
+	stop_training = time()
+
+	start_testing = time()
+	result = 100*(baseline_student_tm.predict(X_test) == Y_test).mean()
+	stop_testing = time()
+
+	print(f"#{i+1} Accuracy: {result:.2f}% Training: {stop_training-start_training:.2f}s Testing: {stop_testing-start_testing:.2f}s")
+
+# Recreate baseline teacher
+baseline_teacher_tm = MultiClassTsetlinMachine(10000, 80*100, 10.0, weighted_clauses=True)
+
+# Train baseline teacher
+print("Training baseline teacher...")
+for i in range(teacher_epochs):
+	start_training = time()
+	baseline_teacher_tm.fit(X_train, Y_train, epochs=1, incremental=True)
+	stop_training = time()
+
+	start_testing = time()
+	result = 100*(baseline_teacher_tm.predict(X_test) == Y_test).mean()
+	stop_testing = time()
+
+	print(f"#{i+1} Accuracy: {result:.2f}% Training: {stop_training-start_training:.2f}s Testing: {stop_testing-start_testing:.2f}s")
+
+# Train distill student
+print("Training distilled student...")
+for i in range(student_epochs):
+	start_training = time()
+	distill_student_tm.fit(baseline_teacher_tm.transform(X_train), Y_train, epochs=1, incremental=True)
+	stop_training = time()
+
+	start_testing = time()
+	result = 100*(distill_student_tm.predict(baseline_teacher_tm.transform(X_test)) == Y_test).mean()
+	stop_testing = time()
+
+	print(f"#{i+1} Accuracy: {result:.2f}% Training: {stop_training-start_training:.2f}s Testing: {stop_testing-start_testing:.2f}s")

@@ -1,7 +1,7 @@
 
 from pyTsetlinMachineParallel.tm import MultiClassTsetlinMachine
 from tensorflow.keras.datasets import mnist, fashion_mnist, cifar10
-from stats import entropy, normalize, softmax, joint_probs, mutual_information
+from stats import entropy, normalize, softmax, joint_probs, mutual_information, kl_divergence
 import numpy as np
 from time import time
 import pandas as pd
@@ -190,6 +190,10 @@ def distilled_experiment(
     student_entropy = np.apply_along_axis(entropy, 1, student_probs)
     teacher_entropy = np.apply_along_axis(entropy, 1, teacher_probs)
     distilled_entropy = np.apply_along_axis(entropy, 1, distilled_probs)
+
+    # calculate kl divergence between teacher and distilled
+    #kl_sd = np.apply_along_axis(kl_divergence, 1, student_probs, distilled_probs)
+    #kl_st = np.apply_along_axis(kl_divergence, 1, student_probs, teacher_probs)
 
     # assuming independence, calculate joint probabilities
     joint_probabilities = joint_probs(teacher_probs, distilled_probs)
