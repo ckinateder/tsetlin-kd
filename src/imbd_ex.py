@@ -5,6 +5,7 @@ from sklearn.feature_selection import chi2
 from keras.datasets import imdb
 from pyTsetlinMachineParallel.tm import MultiClassTsetlinMachine
 from time import time
+from typing import Union, Tuple
 
 MAX_NGRAM = 2
 
@@ -13,167 +14,181 @@ INDEX_FROM=2
 
 FEATURES=5000
 
+def prepare_imdb_data() -> Union[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray]]:
+    """
+    Returns the IMDB dataset in a format that can be used by the Tsetlin Machine.
+    Returns:
+        X_train: np.ndarray: The training data.
+        Y_train: np.ndarray: The training labels.
+        X_test: np.ndarray: The testing data.
+        Y_test: np.ndarray: The testing labels.
+    """
 
-params={
-	"teacher_num_clauses": 10000,
-	"student_num_clauses": 1000,
-	"T": 80*100,
-	"s": 10.0,
-	"teacher_epochs": 10,
-	"student_epochs": 5
-}
+    print("Downloading dataset...")
 
-print("Downloading dataset...")
+    train,test = keras.datasets.imdb.load_data(num_words=NUM_WORDS, index_from=INDEX_FROM)
 
-train,test = keras.datasets.imdb.load_data(num_words=NUM_WORDS, index_from=INDEX_FROM)
+    train_x,train_y = train
+    test_x,test_y = test
 
-train_x,train_y = train
-test_x,test_y = test
+    word_to_id = keras.datasets.imdb.get_word_index()
+    word_to_id = {k:(v+INDEX_FROM) for k,v in word_to_id.items()}
+    word_to_id["<PAD>"] = 0
+    word_to_id["<START>"] = 1
+    word_to_id["<UNK>"] = 2
 
-word_to_id = keras.datasets.imdb.get_word_index()
-word_to_id = {k:(v+INDEX_FROM) for k,v in word_to_id.items()}
-word_to_id["<PAD>"] = 0
-word_to_id["<START>"] = 1
-word_to_id["<UNK>"] = 2
+    print("Producing bit representation...")
 
-print("Producing bit representation...")
+    # Produce N-grams
 
-# Produce N-grams
+    id_to_word = {value:key for key,value in word_to_id.items()}
 
-id_to_word = {value:key for key,value in word_to_id.items()}
+    vocabulary = {}
+    for i in range(train_y.shape[0]):
+        terms = []
+        for word_id in train_x[i]:
+            terms.append(id_to_word[word_id])
+        
+        for N in range(1,MAX_NGRAM+1):
+            grams = [terms[j:j+N] for j in range(len(terms)-N+1)]
+            for gram in grams:
+                phrase = " ".join(gram)
+                
+                if phrase in vocabulary:
+                    vocabulary[phrase] += 1
+                else:
+                    vocabulary[phrase] = 1
 
-vocabulary = {}
-for i in range(train_y.shape[0]):
-	terms = []
-	for word_id in train_x[i]:
-		terms.append(id_to_word[word_id])
-	
-	for N in range(1,MAX_NGRAM+1):
-		grams = [terms[j:j+N] for j in range(len(terms)-N+1)]
-		for gram in grams:
-			phrase = " ".join(gram)
-			
-			if phrase in vocabulary:
-				vocabulary[phrase] += 1
-			else:
-				vocabulary[phrase] = 1
+    # Assign a bit position to each N-gram (minimum frequency 10) 
 
-# Assign a bit position to each N-gram (minimum frequency 10) 
+    phrase_bit_nr = {}
+    bit_nr_phrase = {}
+    bit_nr = 0
+    for phrase in vocabulary.keys():
+        if vocabulary[phrase] < 10:
+            continue
 
-phrase_bit_nr = {}
-bit_nr_phrase = {}
-bit_nr = 0
-for phrase in vocabulary.keys():
-	if vocabulary[phrase] < 10:
-		continue
+        phrase_bit_nr[phrase] = bit_nr
+        bit_nr_phrase[bit_nr] = phrase
+        bit_nr += 1
 
-	phrase_bit_nr[phrase] = bit_nr
-	bit_nr_phrase[bit_nr] = phrase
-	bit_nr += 1
+    # Create bit representation
+    X_train = np.zeros((train_y.shape[0], len(phrase_bit_nr)), dtype=np.uint32)
+    Y_train = np.zeros(train_y.shape[0], dtype=np.uint32)
+    for i in range(train_y.shape[0]):
+        terms = []
+        for word_id in train_x[i]:
+            terms.append(id_to_word[word_id])
 
-# Create bit representation
-X_train = np.zeros((train_y.shape[0], len(phrase_bit_nr)), dtype=np.uint32)
-Y_train = np.zeros(train_y.shape[0], dtype=np.uint32)
-for i in range(train_y.shape[0]):
-	terms = []
-	for word_id in train_x[i]:
-		terms.append(id_to_word[word_id])
+        for N in range(1,MAX_NGRAM+1):
+            grams = [terms[j:j+N] for j in range(len(terms)-N+1)]
+            for gram in grams:
+                phrase = " ".join(gram)
+                if phrase in phrase_bit_nr:
+                    X_train[i,phrase_bit_nr[phrase]] = 1
 
-	for N in range(1,MAX_NGRAM+1):
-		grams = [terms[j:j+N] for j in range(len(terms)-N+1)]
-		for gram in grams:
-			phrase = " ".join(gram)
-			if phrase in phrase_bit_nr:
-				X_train[i,phrase_bit_nr[phrase]] = 1
+        Y_train[i] = train_y[i]
 
-	Y_train[i] = train_y[i]
+    X_test = np.zeros((test_y.shape[0], len(phrase_bit_nr)), dtype=np.uint32)
+    Y_test = np.zeros(test_y.shape[0], dtype=np.uint32)
 
-X_test = np.zeros((test_y.shape[0], len(phrase_bit_nr)), dtype=np.uint32)
-Y_test = np.zeros(test_y.shape[0], dtype=np.uint32)
+    for i in range(test_y.shape[0]):
+        terms = []
+        for word_id in test_x[i]:
+            terms.append(id_to_word[word_id])
 
-for i in range(test_y.shape[0]):
-	terms = []
-	for word_id in test_x[i]:
-		terms.append(id_to_word[word_id])
+        for N in range(1,MAX_NGRAM+1):
+            grams = [terms[j:j+N] for j in range(len(terms)-N+1)]
+            for gram in grams:
+                phrase = " ".join(gram)
+                if phrase in phrase_bit_nr:
+                    X_test[i,phrase_bit_nr[phrase]] = 1				
 
-	for N in range(1,MAX_NGRAM+1):
-		grams = [terms[j:j+N] for j in range(len(terms)-N+1)]
-		for gram in grams:
-			phrase = " ".join(gram)
-			if phrase in phrase_bit_nr:
-				X_test[i,phrase_bit_nr[phrase]] = 1				
+        Y_test[i] = test_y[i]
 
-	Y_test[i] = test_y[i]
+    print("Selecting features...")
 
-print("Selecting features...")
+    SKB = SelectKBest(chi2, k=FEATURES)
+    SKB.fit(X_train, Y_train)
 
-SKB = SelectKBest(chi2, k=FEATURES)
-SKB.fit(X_train, Y_train)
+    selected_features = SKB.get_support(indices=True)
+    X_train = SKB.transform(X_train)
+    X_test = SKB.transform(X_test)
 
-selected_features = SKB.get_support(indices=True)
-X_train = SKB.transform(X_train)
-X_test = SKB.transform(X_test)
+    return (X_train, Y_train), (X_test, Y_test)
 
 
-print("Training Tsetlin Machine...")
-baseline_teacher_tm = MultiClassTsetlinMachine(params["teacher_num_clauses"], 80*100, 10.0, weighted_clauses=True)
-baseline_student_tm = MultiClassTsetlinMachine(params["student_num_clauses"], 80*100, 10.0, weighted_clauses=True)
-distill_student_tm = MultiClassTsetlinMachine(params["student_num_clauses"], 80*100, 10.0, weighted_clauses=True)
-student_epochs = params["student_epochs"]
-teacher_epochs = params["teacher_epochs"]
-combined_epochs = student_epochs + teacher_epochs
+if __name__ == "__main__":
+    (X_train, Y_train), (X_test, Y_test) = prepare_imdb_data()
+    params={
+        "teacher_num_clauses": 10000,
+        "student_num_clauses": 1000,
+        "T": 80*100,
+        "s": 10.0,
+        "teacher_epochs": 10,
+        "student_epochs": 5
+    }
 
-# Train baseline teacher
-print("Training baseline teacher...")
-for i in range(combined_epochs):
-	start_training = time()
-	baseline_teacher_tm.fit(X_train, Y_train, epochs=1, incremental=True)
-	stop_training = time()
+    # Train Tsetlin Machine
+    print("Training Tsetlin Machine...")
+    baseline_teacher_tm = MultiClassTsetlinMachine(params["teacher_num_clauses"], 80*100, 10.0, weighted_clauses=True)
+    baseline_student_tm = MultiClassTsetlinMachine(params["student_num_clauses"], 80*100, 10.0, weighted_clauses=True)
+    distill_student_tm = MultiClassTsetlinMachine(params["student_num_clauses"], 80*100, 10.0, weighted_clauses=True)
+    student_epochs = params["student_epochs"]
+    teacher_epochs = params["teacher_epochs"]
+    combined_epochs = student_epochs + teacher_epochs
 
-	start_testing = time()
-	result = 100*(baseline_teacher_tm.predict(X_test) == Y_test).mean()
-	stop_testing = time()
+    # Train baseline teacher
+    print("Training baseline teacher...")
+    for i in range(combined_epochs):
+        start_training = time()
+        baseline_teacher_tm.fit(X_train, Y_train, epochs=1, incremental=True)
+        stop_training = time()
 
-	print(f"#{i+1} Accuracy: {result:.2f}% Training: {stop_training-start_training:.2f}s Testing: {stop_testing-start_testing:.2f}s")
+        start_testing = time()
+        result = 100*(baseline_teacher_tm.predict(X_test) == Y_test).mean()
+        stop_testing = time()
 
-# Train baseline student
-print("Training baseline student...")
-for i in range(combined_epochs):
-	start_training = time()
-	baseline_student_tm.fit(X_train, Y_train, epochs=1, incremental=True)
-	stop_training = time()
+        print(f"#{i+1} Accuracy: {result:.2f}% Training: {stop_training-start_training:.2f}s Testing: {stop_testing-start_testing:.2f}s")
 
-	start_testing = time()
-	result = 100*(baseline_student_tm.predict(X_test) == Y_test).mean()
-	stop_testing = time()
+    # Train baseline student
+    print("Training baseline student...")
+    for i in range(combined_epochs):
+        start_training = time()
+        baseline_student_tm.fit(X_train, Y_train, epochs=1, incremental=True)
+        stop_training = time()
 
-	print(f"#{i+1} Accuracy: {result:.2f}% Training: {stop_training-start_training:.2f}s Testing: {stop_testing-start_testing:.2f}s")
+        start_testing = time()
+        result = 100*(baseline_student_tm.predict(X_test) == Y_test).mean()
+        stop_testing = time()
 
-# Recreate baseline teacher
-baseline_teacher_tm = MultiClassTsetlinMachine(10000, 80*100, 10.0, weighted_clauses=True)
+        print(f"#{i+1} Accuracy: {result:.2f}% Training: {stop_training-start_training:.2f}s Testing: {stop_testing-start_testing:.2f}s")
 
-# Train baseline teacher
-print("Training baseline teacher...")
-for i in range(teacher_epochs):
-	start_training = time()
-	baseline_teacher_tm.fit(X_train, Y_train, epochs=1, incremental=True)
-	stop_training = time()
+    # Recreate baseline teacher
+    baseline_teacher_tm = MultiClassTsetlinMachine(10000, 80*100, 10.0, weighted_clauses=True)
 
-	start_testing = time()
-	result = 100*(baseline_teacher_tm.predict(X_test) == Y_test).mean()
-	stop_testing = time()
+    # Train baseline teacher
+    print("Training baseline teacher...")
+    for i in range(teacher_epochs):
+        start_training = time()
+        baseline_teacher_tm.fit(X_train, Y_train, epochs=1, incremental=True)
+        stop_training = time()
 
-	print(f"#{i+1} Accuracy: {result:.2f}% Training: {stop_training-start_training:.2f}s Testing: {stop_testing-start_testing:.2f}s")
+        start_testing = time()
+        result = 100*(baseline_teacher_tm.predict(X_test) == Y_test).mean()
+        stop_testing = time()
 
-# Train distill student
-print("Training distilled student...")
-for i in range(student_epochs):
-	start_training = time()
-	distill_student_tm.fit(baseline_teacher_tm.transform(X_train), Y_train, epochs=1, incremental=True)
-	stop_training = time()
+        print(f"#{i+1} Accuracy: {result:.2f}% Training: {stop_training-start_training:.2f}s Testing: {stop_testing-start_testing:.2f}s")
 
-	start_testing = time()
-	result = 100*(distill_student_tm.predict(baseline_teacher_tm.transform(X_test)) == Y_test).mean()
-	stop_testing = time()
+    # Train distill student
+    print("Training distilled student...")
+    for i in range(student_epochs):
+        start_training = time()
+        distill_student_tm.fit(baseline_teacher_tm.transform(X_train), Y_train, epochs=1, incremental=True)
+        stop_training = time()
 
-	print(f"#{i+1} Accuracy: {result:.2f}% Training: {stop_training-start_training:.2f}s Testing: {stop_testing-start_testing:.2f}s")
+        start_testing = time()
+        result = 100*(distill_student_tm.predict(baseline_teacher_tm.transform(X_test)) == Y_test).mean()
+        stop_testing = time()
+
+        print(f"#{i+1} Accuracy: {result:.2f}% Training: {stop_training-start_training:.2f}s Testing: {stop_testing-start_testing:.2f}s")
