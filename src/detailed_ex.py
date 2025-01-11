@@ -237,8 +237,9 @@ if __name__ == "__main__":
     (X_train, Y_train), (X_test, Y_test) = prepare_imdb_data()
     imdb_experiments = [
         {"teacher_num_clauses": 6000, "student_num_clauses": 1000, "T": 80*100, "s": 10.0, "teacher_epochs": 15, "student_epochs": 15},
-        {"teacher_num_clauses": 600, "student_num_clauses": 100, "T": 80*100, "s": 10.0, "teacher_epochs": 15, "student_epochs": 15},
-        {"teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 80*100, "s": 10.0, "teacher_epochs": 15, "student_epochs": 15},
+        {"teacher_num_clauses": 10000, "student_num_clauses": 2000, "T": 80*100, "s": 10.0, "teacher_epochs": 15, "student_epochs": 15},
+        {"teacher_num_clauses": 10000, "student_num_clauses": 5000, "T": 80*100, "s": 10.0, "teacher_epochs": 15, "student_epochs": 15},
+        {"teacher_num_clauses": 4000, "student_num_clauses": 2000, "T": 80*100, "s": 10.0, "teacher_epochs": 15, "student_epochs": 15},
     ]
     
     
@@ -263,10 +264,11 @@ if __name__ == "__main__":
     Y_test = Y_test.flatten()
 
     mnist_experiments = [
-        { "teacher_num_clauses": 600, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 600, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 1000, "student_num_clauses": 300, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 1600, "student_num_clauses": 400, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 1600, "student_num_clauses": 400, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 2400, "student_num_clauses": 400, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
     ]
 
     for i, params in enumerate(mnist_experiments):
@@ -290,10 +292,11 @@ if __name__ == "__main__":
     
     
     fashion_mnist_experiments = [
-        { "teacher_num_clauses": 600, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 600, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 1000, "student_num_clauses": 300, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 1600, "student_num_clauses": 400, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 1600, "student_num_clauses": 400, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 2400, "student_num_clauses": 400, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
     ]
     
     for i, params in enumerate(mnist_experiments):
