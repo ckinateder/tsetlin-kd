@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import pdb
 from sklearn.metrics import mutual_info_score
 from util import save_json
+from imbd_ex import prepare_imdb_data
 
 # set seeds
 np.random.seed(0)
@@ -23,7 +24,9 @@ def distilled_experiment(
         "T": 10,
         "s": 5,
         "teacher_epochs": 60,
-        "student_epochs": 60
+        "student_epochs": 60,
+        "weighted_clauses": True,
+        "number_of_state_bits": 8
     },
 ) -> dict:
     """
@@ -63,7 +66,7 @@ def distilled_experiment(
     print(
         f"Creating a baseline student with {student_num_clauses} clauses and training on original data")
     baseline_distilled_tm = MultiClassTsetlinMachine(
-        student_num_clauses, T, s, number_of_state_bits=8)
+        student_num_clauses, T, s, number_of_state_bits=params["number_of_state_bits"], weighted_clauses=params["weighted_clauses"])
 
     start = time()
 
@@ -92,7 +95,7 @@ def distilled_experiment(
     print(
         f"Creating a baseline teacher with {teacher_num_clauses} clauses and training on original data")
     baseline_teacher_tm = MultiClassTsetlinMachine(
-        teacher_num_clauses, T, s, number_of_state_bits=8)
+        teacher_num_clauses, T, s, number_of_state_bits=params["number_of_state_bits"], weighted_clauses=params["weighted_clauses"])
 
     start = time()
 
@@ -120,7 +123,7 @@ def distilled_experiment(
     print(
         f"Recreating a teacher with {teacher_num_clauses} clauses and training for {teacher_epochs} epochs on original data")
     teacher_tm = MultiClassTsetlinMachine(
-        teacher_num_clauses, T, s, number_of_state_bits=8)
+        teacher_num_clauses, T, s, number_of_state_bits=params["number_of_state_bits"], weighted_clauses=params["weighted_clauses"])
 
     start = time()
 
@@ -144,7 +147,7 @@ def distilled_experiment(
     print(
         f"Creating a student with {student_num_clauses} clauses and training for {student_epochs} epochs on teacher's output")
     distilled_tm = MultiClassTsetlinMachine(
-        student_num_clauses, T, s, number_of_state_bits=8)
+        student_num_clauses, T, s, number_of_state_bits=params["number_of_state_bits"], weighted_clauses=params["weighted_clauses"])
 
     # train student on teacher's output
     for i in range(teacher_epochs, teacher_epochs+student_epochs):
@@ -179,11 +182,11 @@ def distilled_experiment(
 
     # class sums are arranged by [sums] x samples
     # output an array here by sample and then avg
-    print(student_class_sums)
+    #print(student_class_sums)
     student_probs = np.apply_along_axis(softmax, 1, student_class_sums)
     teacher_probs = np.apply_along_axis(softmax, 1, teacher_class_sums)
     distilled_probs = np.apply_along_axis(softmax, 1, distilled_class_sums)
-    print(student_probs)
+    #print(student_probs)
 
     # calculate entropy of each sample, into a 1D array
     # entropy is calculated by -sum(p(x)log(p(x))) for each class for each sample
@@ -224,39 +227,22 @@ def distilled_experiment(
 
 
 if __name__ == "__main__":
-    """### Load CIFAR-10 data"""
-    """
-    (X_train, Y_train), (X_test, Y_test) = cifar10.load_data()
-
-    # Preprocess data
-    X_train = np.copy(X_train)
-    X_test = np.copy(X_test)
+    """### Load IMDB data"""
+    (X_train, Y_train), (X_test, Y_test) = prepare_imdb_data()
+    imdb_experiments = [
+        {"teacher_num_clauses": 6000, "student_num_clauses": 1000, "T": 80*100, "s": 10.0, "teacher_epochs": 15, "student_epochs": 15},
+        {"teacher_num_clauses": 600, "student_num_clauses": 100, "T": 80*100, "s": 10.0, "teacher_epochs": 15, "student_epochs": 15},
+        {"teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 80*100, "s": 10.0, "teacher_epochs": 15, "student_epochs": 15},
+    ]
     
-    # normalize data
-    X_train = X_train / 255.0
-    X_test = X_test / 255.0
+    
+    for i, params in enumerate(imdb_experiments):
+        imdb_results = distilled_experiment(
+            X_train, Y_train, X_test, Y_test, f"IMDB_{i}", params)
+        save_json(imdb_results, os.path.join(
+            "experiments", f"imdb_results_{i}.json"))
+        print(imdb_results)
 
-    # Input data flattening    
-    X_train = X_train.reshape(X_train.shape[0], 32*32, 3)
-    X_test = X_test.reshape(X_test.shape[0], 32*32, 3)
-    Y_train = Y_train.flatten()
-    Y_test = Y_test.flatten()
-
-    cifar10_params = {
-        "teacher_num_clauses": 800,
-        "student_num_clauses": 200,
-        "T": 5000,
-        "s": 10,
-        "teacher_epochs": 45,
-        "student_epochs": 45
-    }
-
-    cifar10_results = distilled_experiment(
-        X_train, Y_train, X_test, Y_test, "CIFAR-10", cifar10_params)
-    cifar10_results.to_csv(os.path.join(
-        "experiments", "cifar10_results.csv"))
-    print(cifar10_results)
-    """
     """### Load MNIST data"""
 
     (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
@@ -274,8 +260,6 @@ if __name__ == "__main__":
         { "teacher_num_clauses": 600, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
         { "teacher_num_clauses": 600, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
         { "teacher_num_clauses": 1000, "student_num_clauses": 300, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 1000, "student_num_clauses": 300, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
         { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
     ]
 
@@ -297,20 +281,18 @@ if __name__ == "__main__":
     X_test = X_test.reshape(X_test.shape[0], 28*28)
     Y_train = Y_train.flatten()
     Y_test = Y_test.flatten()
-
-    fashion_mnist_results = distilled_experiment(
-            X_train, Y_train, X_test, Y_test, "Fashion MNIST", {
-                "teacher_num_clauses": 600,
-                "student_num_clauses": 100,
-                "T": 10,
-                "s": 5,
-                "teacher_epochs": 10,
-                "student_epochs": 20
-            })
     
-    # save results to json
-    save_json(fashion_mnist_results, os.path.join(
-        "experiments", "fashion_mnist_results.json"))
     
-    print(fashion_mnist_results)
+    fashion_mnist_experiments = [
+        { "teacher_num_clauses": 600, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 600, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 1000, "student_num_clauses": 300, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+    ]
     
+    for i, params in enumerate(mnist_experiments):
+        fmnist_results = distilled_experiment(
+            X_train, Y_train, X_test, Y_test, f"Fashion_MNIST_{i}", params)
+        save_json(fmnist_results, os.path.join(
+            "experiments", f"fashion_mnist_results_{i}.json"))
+        print(fmnist_results)
