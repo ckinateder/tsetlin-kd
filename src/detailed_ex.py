@@ -1,13 +1,12 @@
 
 from pyTsetlinMachineParallel.tm import MultiClassTsetlinMachine
-from tensorflow.keras.datasets import mnist, fashion_mnist, cifar10
+from tensorflow.keras.datasets import mnist, fashion_mnist
 from stats import entropy, normalize, softmax, joint_probs, mutual_information, kl_divergence
 import numpy as np
 from time import time
 import pandas as pd
 import os
 import matplotlib.pyplot as plt
-import pdb
 from sklearn.metrics import mutual_info_score
 from util import save_json
 from imbd_ex import prepare_imdb_data
@@ -15,19 +14,21 @@ from imbd_ex import prepare_imdb_data
 # set seeds
 np.random.seed(0)
 
+DEFAULTS = {
+    "teacher_num_clauses": 400,
+    "student_num_clauses": 200,
+    "T": 10,
+    "s": 5,
+    "teacher_epochs": 60,
+    "student_epochs": 60,
+    "weighted_clauses": True,
+    "number_of_state_bits": 8
+}
+
 def distilled_experiment(
     X_train, Y_train, X_test, Y_test,
     experiment_name,
-    params={
-        "teacher_num_clauses": 400,
-        "student_num_clauses": 200,
-        "T": 10,
-        "s": 5,
-        "teacher_epochs": 60,
-        "student_epochs": 60,
-        "weighted_clauses": True,
-        "number_of_state_bits": 8
-    },
+    params=DEFAULTS,
 ) -> dict:
     """
     Train a baseline student model with teacher_epochs + student_epochs epochs
@@ -36,6 +37,11 @@ def distilled_experiment(
     Train the student model with student_epochs epochs on the teacher's output
 
     """
+    # fill in missing parameters with defaults
+    for key, value in DEFAULTS.items():
+        if key not in params:
+            print(f"Parameter {key} not specified, using default value {value}")
+            params[key] = value
 
     print(f"Running {experiment_name}")
     print(params)
