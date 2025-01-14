@@ -211,14 +211,13 @@ def distilled_experiment(
     joint_probabilities = joint_probs(teacher_probs, distilled_probs)
 
     # calculate mutual information
-    mi = mutual_information(teacher_probs, distilled_probs, joint_probabilities)
-    print(f"Mutual information: {mi:.4f}")
+    #mi = mutual_information(teacher_probs, distilled_probs, joint_probabilities)
+    #print(f"Mutual information: {mi:.4f}")
 
     # calculate mutual information using sklearn
     mi_sklearn_dt = mutual_info_score(teacher_prediction, distilled_prediction)
     mi_sklearn_ds = mutual_info_score(student_prediction, distilled_prediction)
 
-    #print(f"Mutual information: {mi:.4f}")
     print(f"Mutual information (distilled <-> teacher) (sklearn): {mi_sklearn_dt:.4f}")
     print(f"Mutual information (distilled <-> student) (sklearn): {mi_sklearn_ds:.4f}")
 
@@ -230,7 +229,8 @@ def distilled_experiment(
         },
         "params": params,
         "experiment_name": experiment_name,
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "id": experiment_name + f"_tnc{teacher_num_clauses}_snc{student_num_clauses}_T{T}_s{s}_te{teacher_epochs}_se{student_epochs}"
     }
 
     return output, results

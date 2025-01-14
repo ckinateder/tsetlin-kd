@@ -571,5 +571,6 @@
         "teacher_epochs": 30,
         "student_epochs": 30
     },
-    "experiment_name": "MNIST_5"
+    "experiment_name": "MNIST_5",
+    "id": "MNIST_5_tnc1000_snc100_T10_s5_te30_se30"
 }

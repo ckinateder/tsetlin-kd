@@ -574,5 +574,6 @@
         "number_of_state_bits": 8
     },
     "experiment_name": "Fashion_MNIST_3",
-    "timestamp": "2025-01-14 08:39:52"
+    "timestamp": "2025-01-14 08:39:52",
+    "id": "Fashion_MNIST_3_tnc2400_snc400_T10_s5_te30_se30"
 }

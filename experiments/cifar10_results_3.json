@@ -574,5 +574,6 @@
         "number_of_state_bits": 8
     },
     "experiment_name": "CIFAR-10_3",
-    "timestamp": "2025-01-14 05:38:15"
+    "timestamp": "2025-01-14 05:38:15",
+    "id": "CIFAR-10_3_tnc2400_snc400_T500_s5_te30_se30"
 }

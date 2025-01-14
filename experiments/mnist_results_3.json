@@ -574,5 +574,6 @@
         "number_of_state_bits": 8
     },
     "experiment_name": "MNIST_3",
-    "timestamp": "2025-01-14 07:31:49"
+    "timestamp": "2025-01-14 07:31:49",
+    "id": "MNIST_3_tnc2400_snc400_T10_s5_te30_se30"
 }
