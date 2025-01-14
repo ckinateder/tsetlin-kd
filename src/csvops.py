@@ -15,10 +15,19 @@ def iterate_over_file_in_folder(folder="experiments", file_extension=".json"):
                     yield data, file_path
 
 def combine_into_cols():
-    for experiment in iterate_over_file_in_folder():
+    # make a single csv with all the results. prepend the experiment name to each result column
+    output = pd.DataFrame()
+    for experiment, file_path in iterate_over_file_in_folder():
         results = experiment["results"]
         params = experiment["params"]
         experiment_id = experiment["id"]
+        experiment_name = experiment["experiment_name"]
+        # add columns to the output dataframe
+        for key, value in results.items():
+            new_key = f"{experiment_name}_{key}"
+            output = output.copy()
+            output[new_key] = value
+    output.to_csv(os.path.join("experiments", "one_table.csv"), index=False)
 
         
 
@@ -49,4 +58,5 @@ def process_mi():
     return mis
                     
 if __name__ == "__main__":
-    process_mi()
+    #process_mi()
+    combine_into_cols()
