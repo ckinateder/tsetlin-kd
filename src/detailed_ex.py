@@ -1,6 +1,8 @@
 
 from pyTsetlinMachineParallel.tm import MultiClassTsetlinMachine
 from tensorflow.keras.datasets import mnist, fashion_mnist, cifar10
+from torchvision.datasets import KMNIST
+from torchvision import transforms
 from stats import entropy, normalize, softmax, joint_probs, mutual_information, kl_divergence
 import numpy as np
 from time import time
@@ -235,15 +237,38 @@ def distilled_experiment(
 
 
 if __name__ == "__main__":
+    """### Load KMNIST data"""
+    train = KMNIST(root="data", download=True, train=True, transform=transforms.ToTensor())
+    test = KMNIST(root="data", download=True, train=False, transform=transforms.ToTensor())
+
+    X_train, Y_train = train.data.numpy(), train.targets.numpy()
+    X_test, Y_test = test.data.numpy(), test.targets.numpy()
+
+    X_train = X_train.reshape(X_train.shape[0], 28*28)
+    X_test = X_test.reshape(X_test.shape[0], 28*28)
+
+    X_train = np.where(X_train > 75, 1, 0)
+    X_test = np.where(X_test > 75, 1, 0)
+
+    kmnist_experiments = [
+        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 1600, "student_num_clauses": 400, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 2400, "student_num_clauses": 400, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+    ]
+    
+    for i, params in enumerate(kmnist_experiments):
+        kmnist_results, df = distilled_experiment(
+            X_train, Y_train, X_test, Y_test, f"KMNIST_{i}", params)
+        save_json(kmnist_results, os.path.join(
+            "experiments", f"kmnist_results_{i}.json"))
+        df.to_csv(os.path.join(
+            "experiments", f"kmnist_results_{i}.csv"))
+        print(kmnist_results)
+
     """### Load CIFAR-10 data"""
     (X_train, Y_train), (X_test, Y_test) = cifar10.load_data()
         
-    X_train = X_train.reshape(X_train.shape[0], -1)
-    X_test = X_test.reshape(X_test.shape[0], -1)
-
-    Y_train = Y_train.reshape(Y_train.shape[0])
-    Y_test = Y_test.reshape(Y_test.shape[0])
-
     # Input data flattening
     X_train = X_train.reshape(X_train.shape[0], 32*32, 3)
     X_test = X_test.reshape(X_test.shape[0], 32*32, 3)
@@ -326,7 +351,6 @@ if __name__ == "__main__":
     Y_train = Y_train.flatten()
     Y_test = Y_test.flatten()
     
-    
     fashion_mnist_experiments = [
         { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
         { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
@@ -342,3 +366,5 @@ if __name__ == "__main__":
         df.to_csv(os.path.join(
             "experiments", f"fashion_mnist_results_{i}.csv"))
         print(fmnist_results)
+
+
