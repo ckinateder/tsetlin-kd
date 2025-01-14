@@ -23,10 +23,10 @@ def combine_into_cols():
         experiment_id = experiment["id"]
         experiment_name = experiment["experiment_name"]
         # add columns to the output dataframe
-        for key, value in results.items():
-            new_key = f"{experiment_name}_{key}"
-            output = output.copy()
-            output[new_key] = value
+        intermediate = pd.DataFrame(results)
+        intermediate.columns = [f"{experiment_name}_{col}" for col in intermediate.columns]
+        output = pd.concat([output, intermediate], axis=1)
+
     output.to_csv(os.path.join("experiments", "one_table.csv"), index=False)
 
         
