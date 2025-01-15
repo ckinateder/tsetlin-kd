@@ -305,5 +305,16 @@
     },
     "experiment_name": "IMDB_2",
     "timestamp": "2025-01-14 06:00:10",
-    "id": "IMDB_2_tnc2000_snc250_T8000_s10.0_te15_se15"
+    "id": "IMDB_2_tnc2000_snc250_T8000_s10.0_te15_se15",
+    "analysis": {
+        "avg_acc_test_teacher": 87.55,
+        "std_acc_test_teacher": 1.1744022690948663,
+        "avg_acc_test_student": 83.92133333333332,
+        "std_acc_test_student": 2.502808206703068,
+        "avg_acc_test_distilled": 83.92226666666666,
+        "std_acc_test_distilled": 3.7873433772858864,
+        "sum_time_train_teacher": 212.7902820110321,
+        "sum_time_train_student": 46.28289866447449,
+        "sum_time_train_distilled": 195.96037340164185
+    }
 }

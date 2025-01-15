@@ -575,5 +575,16 @@
     },
     "experiment_name": "Fashion_MNIST_0",
     "timestamp": "2025-01-14 07:34:49",
-    "id": "Fashion_MNIST_0_tnc400_snc100_T10_s5_te30_se30"
+    "id": "Fashion_MNIST_0_tnc400_snc100_T10_s5_te30_se30",
+    "analysis": {
+        "avg_acc_test_teacher": 76.714,
+        "std_acc_test_teacher": 1.9472694485059703,
+        "avg_acc_test_student": 76.04749999999999,
+        "std_acc_test_student": 1.6365420603376613,
+        "avg_acc_test_distilled": 77.27033333333335,
+        "std_acc_test_distilled": 2.0199722826313407,
+        "sum_time_train_teacher": 36.643874406814575,
+        "sum_time_train_student": 18.299227714538574,
+        "sum_time_train_distilled": 90.71578574180603
+    }
 }

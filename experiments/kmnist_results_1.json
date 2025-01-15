@@ -575,5 +575,16 @@
     },
     "experiment_name": "KMNIST_1",
     "timestamp": "2025-01-14 02:46:06",
-    "id": "KMNIST_1_tnc800_snc100_T600_s5_te30_se30"
+    "id": "KMNIST_1_tnc800_snc100_T600_s5_te30_se30",
+    "analysis": {
+        "avg_acc_test_teacher": 86.55766666666666,
+        "std_acc_test_teacher": 1.8368436142679203,
+        "avg_acc_test_student": 78.88966666666667,
+        "std_acc_test_student": 2.212525948649265,
+        "avg_acc_test_distilled": 83.905,
+        "std_acc_test_distilled": 2.673365491444718,
+        "sum_time_train_teacher": 45.343571186065674,
+        "sum_time_train_student": 18.246376514434814,
+        "sum_time_train_distilled": 153.40682864189148
+    }
 }

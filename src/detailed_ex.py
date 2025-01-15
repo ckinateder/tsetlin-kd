@@ -40,6 +40,7 @@ def distilled_experiment(
     Train the student model with student_epochs epochs on the teacher's output
 
     """
+    exp_start = time()
     # fill in missing parameters with defaults
     for key, value in DEFAULTS.items():
         if key not in params:
@@ -221,8 +222,34 @@ def distilled_experiment(
     print(f"Mutual information (distilled <-> teacher) (sklearn): {mi_sklearn_dt:.4f}")
     print(f"Mutual information (distilled <-> student) (sklearn): {mi_sklearn_ds:.4f}")
 
+    # compute averages for accuracy
+    avg_acc_test_teacher = results["acc_test_teacher"].mean()
+    std_acc_test_teacher = results["acc_test_teacher"].std()
+    avg_acc_test_student = results["acc_test_student"].mean()
+    std_acc_test_student = results["acc_test_student"].std()
+    avg_acc_test_distilled = results["acc_test_distilled"].mean()
+    std_acc_test_distilled = results["acc_test_distilled"].std()
+
+    # compute sum of training times
+    sum_time_train_teacher = results["time_train_teacher"].sum()
+    sum_time_train_student = results["time_train_student"].sum()
+    sum_time_train_distilled = results["time_train_distilled"].sum()
+    total_time = time() - exp_start
+
     output = {
         "results": results.to_dict(),
+        "analysis": {
+            "avg_acc_test_teacher": avg_acc_test_teacher,
+            "std_acc_test_teacher": std_acc_test_teacher,
+            "avg_acc_test_student": avg_acc_test_student,
+            "std_acc_test_student": std_acc_test_student,
+            "avg_acc_test_distilled": avg_acc_test_distilled,
+            "std_acc_test_distilled": std_acc_test_distilled,
+            "sum_time_train_teacher": sum_time_train_teacher,
+            "sum_time_train_student": sum_time_train_student,
+            "sum_time_train_distilled": sum_time_train_distilled,
+            "total_time": total_time
+        },
         "mutual_information": {
             "sklearn_teacher": mi_sklearn_dt,
             "sklearn_student": mi_sklearn_ds

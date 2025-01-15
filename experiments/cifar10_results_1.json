@@ -575,5 +575,16 @@
     },
     "experiment_name": "CIFAR-10_1",
     "timestamp": "2025-01-14 03:48:32",
-    "id": "CIFAR-10_1_tnc800_snc100_T500_s5_te30_se30"
+    "id": "CIFAR-10_1_tnc800_snc100_T500_s5_te30_se30",
+    "analysis": {
+        "avg_acc_test_teacher": 10.066166666666666,
+        "std_acc_test_teacher": 0.11471544258887545,
+        "avg_acc_test_student": 9.961166666666667,
+        "std_acc_test_student": 0.1323335752605624,
+        "avg_acc_test_distilled": 10.067833333333335,
+        "std_acc_test_distilled": 0.12428905165613717,
+        "sum_time_train_teacher": 275.6577935218811,
+        "sum_time_train_student": 54.8972373008728,
+        "sum_time_train_distilled": 337.1705937385559
+    }
 }

@@ -575,5 +575,16 @@
     },
     "experiment_name": "MNIST_0",
     "timestamp": "2025-01-14 06:34:49",
-    "id": "MNIST_0_tnc400_snc100_T10_s5_te30_se30"
+    "id": "MNIST_0_tnc400_snc100_T10_s5_te30_se30",
+    "analysis": {
+        "avg_acc_test_teacher": 91.359,
+        "std_acc_test_teacher": 1.725494475922968,
+        "avg_acc_test_student": 89.69416666666667,
+        "std_acc_test_student": 1.4552200505353907,
+        "avg_acc_test_distilled": 91.14649999999999,
+        "std_acc_test_distilled": 2.033597317771504,
+        "sum_time_train_teacher": 27.278666019439697,
+        "sum_time_train_student": 15.97658920288086,
+        "sum_time_train_distilled": 72.52855777740479
+    }
 }

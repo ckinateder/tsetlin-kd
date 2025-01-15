@@ -57,6 +57,41 @@ def process_mi():
     mis.to_csv(os.path.join("experiments", "mutual_info.csv"), index=False)
     return mis
                     
+def add_analyses():
+    """
+    
+    # compute averages for accuracy
+    avg_acc_test_teacher = results["acc_test_teacher"].mean()
+    std_acc_test_teacher = results["acc_test_teacher"].std()
+    avg_acc_test_student = results["acc_test_student"].mean()
+    std_acc_test_student = results["acc_test_student"].std()
+    avg_acc_test_distilled = results["acc_test_distilled"].mean()
+    std_acc_test_distilled = results["acc_test_distilled"].std()
+
+    # compute sum of training times
+    sum_time_train_teacher = results["time_train_teacher"].sum()
+    sum_time_train_student = results["time_train_student"].sum()
+    sum_time_train_distilled = results["time_train_distilled"].sum()
+
+    """
+    import numpy as np
+    for experiment, file_path in iterate_over_file_in_folder():
+        results = experiment["results"]
+        results_pd = pd.DataFrame(results)
+        experiment["analysis"] = { 
+            "avg_acc_test_teacher": results_pd["acc_test_teacher"].mean(),
+            "std_acc_test_teacher": results_pd["acc_test_teacher"].std(),
+            "avg_acc_test_student": results_pd["acc_test_student"].mean(),
+            "std_acc_test_student": results_pd["acc_test_student"].std(),
+            "avg_acc_test_distilled": results_pd["acc_test_distilled"].mean(),
+            "std_acc_test_distilled": results_pd["acc_test_distilled"].std(),
+            "sum_time_train_teacher": results_pd["time_train_teacher"].sum(),
+            "sum_time_train_student": results_pd["time_train_student"].sum(),
+            "sum_time_train_distilled": results_pd["time_train_distilled"].sum()
+        }
+        with open(file_path, 'w') as f:
+            json.dump(experiment, f, indent=4)
+
 if __name__ == "__main__":
     #process_mi()
-    combine_into_cols()
+    add_analyses()
