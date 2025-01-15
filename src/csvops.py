@@ -27,6 +27,9 @@ def combine_into_cols():
         intermediate.columns = [f"{experiment_name}_{col}" for col in intermediate.columns]
         output = pd.concat([output, intermediate], axis=1)
 
+    # sort columns alphabetically
+    output = output.reindex(sorted(output.columns), axis=1)
+
     output.to_csv(os.path.join("experiments", "one_table.csv"), index=False)
 
         
@@ -94,5 +97,5 @@ def add_analyses():
             json.dump(experiment, f, indent=4)
 
 if __name__ == "__main__":
-    process_mi()
+    combine_into_cols()
     #add_analyses()
