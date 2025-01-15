@@ -53,7 +53,8 @@ def process_mi():
             "mutual_info_sd": experiment["mutual_information"]["sklearn_student"],
             "mutual_info_td": experiment["mutual_information"]["sklearn_teacher"]
         }, ignore_index=True)
-
+    # sort alph
+    mis = mis.sort_values(by="experiment_name")
     mis.to_csv(os.path.join("experiments", "mutual_info.csv"), index=False)
     return mis
                     
@@ -93,5 +94,5 @@ def add_analyses():
             json.dump(experiment, f, indent=4)
 
 if __name__ == "__main__":
-    #process_mi()
-    add_analyses()
+    process_mi()
+    #add_analyses()
