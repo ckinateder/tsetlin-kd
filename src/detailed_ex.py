@@ -245,6 +245,7 @@ def distilled_experiment(
             "std_acc_test_student": std_acc_test_student,
             "avg_acc_test_distilled": avg_acc_test_distilled,
             "std_acc_test_distilled": std_acc_test_distilled,
+            "final_acc_test_distilled": results["acc_test_distilled"].iloc[-1],
             "sum_time_train_teacher": sum_time_train_teacher,
             "sum_time_train_student": sum_time_train_student,
             "sum_time_train_distilled": sum_time_train_distilled,
@@ -259,7 +260,7 @@ def distilled_experiment(
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "id": experiment_name + f"_tnc{teacher_num_clauses}_snc{student_num_clauses}_T{T}_s{s}_te{teacher_epochs}_se{student_epochs}"
     }
-
+    
     return output, results
 
 

@@ -313,6 +313,7 @@
         "std_acc_test_student": 1.602539874878224,
         "avg_acc_test_distilled": 86.14266666666668,
         "std_acc_test_distilled": 1.2409892976096157,
+        "final_acc_test_distilled": 86.436,
         "sum_time_train_teacher": 220.47058391571045,
         "sum_time_train_student": 119.22391271591187,
         "sum_time_train_distilled": 202.23230648040771

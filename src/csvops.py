@@ -4,6 +4,7 @@ import csv
 import pandas as pd
 import json
 import os
+import matplotlib.pyplot as plt
 
 def iterate_over_file_in_folder(folder="experiments", file_extension=".json"):
     for root, dirs, files in os.walk(folder):
@@ -89,6 +90,7 @@ def add_analyses():
             "std_acc_test_student": results_pd["acc_test_student"].std(),
             "avg_acc_test_distilled": results_pd["acc_test_distilled"].mean(),
             "std_acc_test_distilled": results_pd["acc_test_distilled"].std(),
+            "final_acc_test_distilled": results_pd["acc_test_distilled"].iloc[-1],
             "sum_time_train_teacher": results_pd["time_train_teacher"].sum(),
             "sum_time_train_student": results_pd["time_train_student"].sum(),
             "sum_time_train_distilled": results_pd["time_train_distilled"].sum()
@@ -96,6 +98,32 @@ def add_analyses():
         with open(file_path, 'w') as f:
             json.dump(experiment, f, indent=4)
 
+def make_charts():
+    for experiment, file_path in iterate_over_file_in_folder():
+        results = experiment["results"]
+        results_pd = pd.DataFrame(results)
+        params = experiment["params"]
+        del params["number_of_state_bits"]
+        del params["weighted_clauses"]
+
+        # make a chart of the accuracies
+        plt.figure(figsize=(8,6))
+        plt.plot(results_pd["acc_test_distilled"], label="Distilled")
+        plt.plot(results_pd["acc_test_teacher"], label="Teacher", alpha=0.5)
+        plt.plot(results_pd["acc_test_student"], label="Student", alpha=0.5)
+        plt.xlabel("Epoch")
+        plt.ylabel("Accuracy")
+        plt.title(experiment["experiment_name"])
+        plt.xticks(range(0, len(results_pd), 5))
+        plt.legend(loc="upper left")
+        # add text of parameters
+        params_text = "\n".join([f"{k}: {v}" for k, v in params.items()])
+        plt.gcf().text(0.68, 0.14, params_text, fontsize=8, verticalalignment='bottom', bbox=dict(facecolor='white', alpha=1))
+        plt.savefig(file_path.replace(".json", ".png"))
+        plt.close()
+
+        
+
 if __name__ == "__main__":
-    combine_into_cols()
-    #add_analyses()
+    #combine_into_cols()
+    make_charts()
