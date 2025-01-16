@@ -122,8 +122,33 @@ def make_charts():
         plt.savefig(file_path.replace(".json", ".png"))
         plt.close()
 
+def make_accuracy_table():
+    """
+    experiment, avg_acc_test_teacher, std_acc_test_teacher, avg_acc_test_student, std_acc_test_student, avg_acc_test_distilled, std_acc_test_distilled, final_acc_test_distilled, mutual_info_sd, mutual_info_td
+    """
+    table = pd.DataFrame(columns=["experiment", "avg_acc_test_teacher", "std_acc_test_teacher", "avg_acc_test_student", "std_acc_test_student", "avg_acc_test_distilled", "std_acc_test_distilled", "final_acc_test_distilled", "mutual_info_sd", "mutual_info_td"])
+    for experiment, file_path in iterate_over_file_in_folder():
+        results = experiment["results"]
+        results_pd = pd.DataFrame(results)
+        params = experiment["params"]
+        new_row = pd.DataFrame([{
+            "experiment": experiment["experiment_name"],
+            "avg_acc_test_teacher": round(results_pd["acc_test_teacher"].mean(), 3),
+            "std_acc_test_teacher": round(results_pd["acc_test_teacher"].std(), 3),
+            "avg_acc_test_student": round(results_pd["acc_test_student"].mean(), 3),
+            "std_acc_test_student": round(results_pd["acc_test_student"].std(), 3),
+            "avg_acc_test_distilled": round(results_pd["acc_test_distilled"].mean(), 3),
+            "std_acc_test_distilled": round(results_pd["acc_test_distilled"].std(), 3),
+            "final_acc_test_distilled": round(results_pd["acc_test_distilled"].iloc[-1], 3),
+            "mutual_info_sd": round(experiment["mutual_information"]["sklearn_student"], 3),
+            "mutual_info_td": round(experiment["mutual_information"]["sklearn_teacher"], 3)
+        }])
+        table = pd.concat([table, new_row], ignore_index=True)
+        
+    table = table.sort_values(by="experiment")
+    table.to_csv(os.path.join("experiments", "accuracy_table.csv"), index=False)
         
 
 if __name__ == "__main__":
     #combine_into_cols()
-    make_charts()
+    make_accuracy_table()
