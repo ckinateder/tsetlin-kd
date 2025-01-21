@@ -32,6 +32,7 @@ def distilled_experiment(
     X_train, Y_train, X_test, Y_test,
     experiment_name,
     params=DEFAULTS,
+    folderpath="experiments"
 ) -> dict:
     """
     Train a baseline student model with teacher_epochs + student_epochs epochs
@@ -160,7 +161,7 @@ def distilled_experiment(
         student_num_clauses, T, s, number_of_state_bits=params["number_of_state_bits"], weighted_clauses=params["weighted_clauses"])
 
     # train student on teacher's output
-    for i in range(teacher_epochs, teacher_epochs+student_epochs):
+    for i in range(teacher_epochs, combined_epochs):
         start_training = time()
         distilled_tm.fit(teacher_tm.transform(X_train),
                        Y_train, epochs=1, incremental=True)
@@ -260,11 +261,58 @@ def distilled_experiment(
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "id": experiment_name + f"_tnc{teacher_num_clauses}_snc{student_num_clauses}_T{T}_s{s}_te{teacher_epochs}_se{student_epochs}"
     }
-    
+
+    # save output
+    fpath = os.path.join(folderpath, output["id"])
+    save_json(output, fpath + ".json")
+    results.to_csv(fpath + ".csv")
+
+    # plot results and save
+    plt.figure(figsize=(8,6))
+    plt.plot(results["acc_test_distilled"], label="Distilled")
+    plt.plot(results["acc_test_teacher"], label="Teacher", alpha=0.5)
+    plt.plot(results["acc_test_student"], label="Student", alpha=0.5)
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy")
+    plt.title(f"Testing Accuracy of {experiment_name} Over {combined_epochs} Epochs")
+    plt.xticks(range(0, len(results), 5))
+    plt.legend(loc="upper left")
+    # add text of parameters
+    params_text = "\n".join([f"{k}: {v}" for k, v in params.items()])
+    plt.gcf().text(0.68, 0.14, params_text, fontsize=8, verticalalignment='bottom', bbox=dict(facecolor='white', alpha=1))
+    plt.savefig(fpath + ".png")
+    plt.close()
+
     return output, results
 
 
 if __name__ == "__main__":
+    """### Load MNIST data"""
+
+    (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
+    # Data booleanization
+    X_train = np.where(X_train > 75, 1, 0)
+    X_test = np.where(X_test > 75, 1, 0)
+
+    # Input data flattening
+    X_train = X_train.reshape(X_train.shape[0], 28*28)
+    X_test = X_test.reshape(X_test.shape[0], 28*28)
+    Y_train = Y_train.flatten()
+    Y_test = Y_test.flatten()
+
+    mnist_experiments = [
+        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 10, "student_epochs": 10 },
+        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 1600, "student_num_clauses": 400, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 2400, "student_num_clauses": 400, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+    ]
+
+    for i, params in enumerate(mnist_experiments):
+        mnist_results, df = distilled_experiment(
+            X_train, Y_train, X_test, Y_test, f"MNIST", params)
+        print(mnist_results)
+
     """### Load KMNIST data"""
     train = KMNIST(root="data", download=True, train=True, transform=transforms.ToTensor())
     test = KMNIST(root="data", download=True, train=False, transform=transforms.ToTensor())
@@ -287,11 +335,7 @@ if __name__ == "__main__":
     
     for i, params in enumerate(kmnist_experiments):
         kmnist_results, df = distilled_experiment(
-            X_train, Y_train, X_test, Y_test, f"KMNIST_{i}", params)
-        save_json(kmnist_results, os.path.join(
-            "experiments", f"kmnist_results_{i}.json"))
-        df.to_csv(os.path.join(
-            "experiments", f"kmnist_results_{i}.csv"))
+            X_train, Y_train, X_test, Y_test, f"KMNIST", params)
         print(kmnist_results)
 
     """### Load CIFAR-10 data"""
@@ -312,17 +356,13 @@ if __name__ == "__main__":
 
     for i, params in enumerate(cifar10_experiments):
         cifar10_results, df = distilled_experiment(
-            X_train, Y_train, X_test, Y_test, f"CIFAR-10_{i}", params)
-        save_json(cifar10_results, os.path.join(
-            "experiments", f"cifar10_results_{i}.json"))
-        df.to_csv(os.path.join(
-            "experiments", f"cifar10_results_{i}.csv"))
+            X_train, Y_train, X_test, Y_test, f"CIFAR-10", params)
         print(cifar10_results)
 
     """### Load IMDB data"""
     (X_train, Y_train), (X_test, Y_test) = prepare_imdb_data()
     imdb_experiments = [
-        {"teacher_num_clauses": 500, "student_num_clauses": 100, "T": 80*100, "s": 10.0, "teacher_epochs": 15, "student_epochs": 15},
+        {"teacher_num_clauses": 500, "student_num_clauses": 100, "T": 80*100, "s": 10.0, "teacher_epochs": 30, "student_epochs": 30},
         {"teacher_num_clauses": 1000, "student_num_clauses": 250, "T": 80*100, "s": 10.0, "teacher_epochs": 15, "student_epochs": 15},
         {"teacher_num_clauses": 2000, "student_num_clauses": 250, "T": 80*100, "s": 10.0, "teacher_epochs": 15, "student_epochs": 15},
         {"teacher_num_clauses": 3000, "student_num_clauses": 500, "T": 80*100, "s": 10.0, "teacher_epochs": 15, "student_epochs": 15},
@@ -331,41 +371,8 @@ if __name__ == "__main__":
     
     for i, params in enumerate(imdb_experiments):
         imdb_results, df = distilled_experiment(
-            X_train, Y_train, X_test, Y_test, f"IMDB_{i}", params)
-        save_json(imdb_results, os.path.join(
-            "experiments", f"imdb_results_{i}.json"))
-        df.to_csv(os.path.join(
-            "experiments", f"imdb_results_{i}.csv"))
+            X_train, Y_train, X_test, Y_test, f"IMDB", params)
         print(imdb_results)
-
-    """### Load MNIST data"""
-
-    (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
-    # Data booleanization
-    X_train = np.where(X_train > 75, 1, 0)
-    X_test = np.where(X_test > 75, 1, 0)
-
-    # Input data flattening
-    X_train = X_train.reshape(X_train.shape[0], 28*28)
-    X_test = X_test.reshape(X_test.shape[0], 28*28)
-    Y_train = Y_train.flatten()
-    Y_test = Y_test.flatten()
-
-    mnist_experiments = [
-        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 1600, "student_num_clauses": 400, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 2400, "student_num_clauses": 400, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-    ]
-
-    for i, params in enumerate(mnist_experiments):
-        mnist_results, df = distilled_experiment(
-            X_train, Y_train, X_test, Y_test, f"MNIST_{i}", params)
-        save_json(mnist_results, os.path.join(
-            "experiments", f"mnist_results_{i}.json"))
-        df.to_csv(os.path.join(
-            "experiments", f"mnist_results_{i}.csv"))
-        print(mnist_results)
 
     """### Load Fashion MNIST data"""
     (X_train, Y_train), (X_test, Y_test) = fashion_mnist.load_data()
@@ -388,11 +395,7 @@ if __name__ == "__main__":
     
     for i, params in enumerate(mnist_experiments):
         fmnist_results, df = distilled_experiment(
-            X_train, Y_train, X_test, Y_test, f"Fashion_MNIST_{i}", params)
-        save_json(fmnist_results, os.path.join(
-            "experiments", f"fashion_mnist_results_{i}.json"))
-        df.to_csv(os.path.join(
-            "experiments", f"fashion_mnist_results_{i}.csv"))
+            X_train, Y_train, X_test, Y_test, f"FashionMNIST", params)
         print(fmnist_results)
 
 
