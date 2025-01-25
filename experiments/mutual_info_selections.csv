@@ -1,0 +1,6 @@
+experiment_name,id,teacher_num_clauses,student_num_clauses,T,s,teacher_epochs,student_epochs,weighted_clauses,number_of_state_bits,mutual_info_sd,mutual_info_td
+CIFAR-10_3,CIFAR-10_3_tnc2400_snc400_T500_s5_te30_se30,2400,400,500,5,30,30,TRUE,8,0.618427632,0.257268225
+Fashion_MNIST_3,Fashion_MNIST_3_tnc2400_snc400_T10_s5_te30_se30,2400,400,10,5,30,30,TRUE,8,2.239684277,1.617073657
+IMDB_4,IMDB_4_tnc2000_snc1000_T8000_s10.0_te15_se15,2000,1000,8000,10,15,15,TRUE,8,0.682095124,0.398761175
+KMNIST_3,KMNIST_3_tnc2400_snc400_T600_s5_te30_se30,2400,400,600,5,30,30,TRUE,8,2.299498205,1.691150492
+MNIST_1,MNIST_1_tnc800_snc100_T10_s5_te30_se30,800,100,10,5,30,30,TRUE,8,2.2974466,1.751270107

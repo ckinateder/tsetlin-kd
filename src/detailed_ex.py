@@ -277,6 +277,7 @@ def distilled_experiment(
     plt.title(f"Testing Accuracy of {experiment_name} Over {combined_epochs} Epochs")
     plt.xticks(range(0, len(results), 5))
     plt.legend(loc="upper left")
+    plt.grid(linestyle='dotted')
     # add text of parameters
     params_text = "\n".join([f"{k}: {v}" for k, v in params.items()])
     plt.gcf().text(0.68, 0.14, params_text, fontsize=8, verticalalignment='bottom', bbox=dict(facecolor='white', alpha=1))

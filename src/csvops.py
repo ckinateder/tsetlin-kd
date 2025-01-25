@@ -116,6 +116,7 @@ def make_charts():
         plt.title(experiment["experiment_name"])
         plt.xticks(range(0, len(results_pd), 5))
         plt.legend(loc="upper left")
+        plt.grid(linestyle='dotted')
         # add text of parameters
         params_text = "\n".join([f"{k}: {v}" for k, v in params.items()])
         plt.gcf().text(0.68, 0.14, params_text, fontsize=8, verticalalignment='bottom', bbox=dict(facecolor='white', alpha=1))
@@ -147,8 +148,38 @@ def make_accuracy_table():
         
     table = table.sort_values(by="experiment")
     table.to_csv(os.path.join("experiments", "accuracy_table.csv"), index=False)
+
+def make_condensed_accuracy_table():
+    """
+    experiment, acc_teacher +/- std_teacher, acc_student +/- std_student, acc_distilled +/- std_distilled, mutual_info_sd, mutual_info_td
+    """
+    table = pd.DataFrame(columns=["experiment", "acc_teacher", "acc_student", "acc_distilled", "mutual_info_sd", "mutual_info_td"])
+    for experiment, file_path in iterate_over_file_in_folder():
+        results = experiment["results"]
+        results_pd = pd.DataFrame(results)
+        params = experiment["params"]
+        
+        acc_teacher = f"{round(results_pd['acc_test_teacher'].mean(), 3)} +/- {round(results_pd['acc_test_teacher'].std(), 3)}"
+        acc_student = f"{round(results_pd['acc_test_student'].mean(), 3)} +/- {round(results_pd['acc_test_student'].std(), 3)}"
+        acc_distilled = f"{round(results_pd['acc_test_distilled'].mean(), 3)} +/- {round(results_pd['acc_test_distilled'].std(), 3)}"
+        mutual_info_sd = f"{round(experiment['mutual_information']['sklearn_student'], 3)}"
+        mutual_info_td = f"{round(experiment['mutual_information']['sklearn_teacher'], 3)}"
+
+        new_row = pd.DataFrame([{
+            "experiment": experiment["experiment_name"],
+            "acc_teacher": acc_teacher,
+            "acc_student": acc_student,
+            "acc_distilled": acc_distilled,
+            "mutual_info_sd": mutual_info_sd,
+            "mutual_info_td": mutual_info_td
+        }])
+        table = pd.concat([table, new_row], ignore_index=True)
+        
+    table = table.sort_values(by="experiment")
+    table.to_csv(os.path.join("experiments", "accuracy_table.csv"), index=False)
         
 
 if __name__ == "__main__":
     #combine_into_cols()
-    make_accuracy_table()
+    make_condensed_accuracy_table()
+    #make_charts()       
