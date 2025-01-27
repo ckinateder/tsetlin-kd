@@ -288,6 +288,46 @@ def distilled_experiment(
 
 
 if __name__ == "__main__":
+    """### Load MNIST-100 data"""
+    data = np.load(os.path.join("data", "mnist100_compressed.npz"))
+    X_train, Y_train = data['train_images'], data['train_labels']
+    X_test, Y_test = data['test_images'], data['test_labels']
+
+    # Data booleanization
+    X_train = np.where(X_train > 75, 1, 0) 
+    X_test = np.where(X_test > 75, 1, 0)
+
+    # Input data flattening
+    X_train = X_train.reshape(X_train.shape[0], 28*56)
+    X_test = X_test.reshape(X_test.shape[0], 28*56)
+
+    mnist100_experiments = [
+        { "teacher_num_clauses": 1000, "student_num_clauses": 500, "T": 200, "s": 20.0, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 4000, "student_num_clauses": 500, "T": 200, "s": 20.0, "teacher_epochs": 30, "student_epochs": 30 }, 
+        { "teacher_num_clauses": 4000, "student_num_clauses": 1000, "T": 200, "s": 20.0, "teacher_epochs": 30, "student_epochs": 30 },        { "teacher_num_clauses": 4000, "student_num_clauses": 500, "T": 200, "s": 20.0, "teacher_epochs": 30, "student_epochs": 30 },
+    ]
+    
+    for i, params in enumerate(mnist100_experiments):
+        mnist100_results, df = distilled_experiment(
+            X_train, Y_train, X_test, Y_test, f"MNIST-100", params)
+        print(mnist100_results)
+
+    """### Load IMDB data"""
+    (X_train, Y_train), (X_test, Y_test) = prepare_imdb_data()
+    imdb_experiments = [
+        {"teacher_num_clauses": 2000, "student_num_clauses": 250, "T": 80*100, "s": 10.0, "teacher_epochs": 30, "student_epochs": 30},
+        {"teacher_num_clauses": 3000, "student_num_clauses": 500, "T": 80*100, "s": 10.0, "teacher_epochs": 30, "student_epochs": 30},
+        {"teacher_num_clauses": 10000, "student_num_clauses": 4000, "T": 80*100, "s": 10.0, "teacher_epochs": 30, "student_epochs": 30},
+    ]
+    
+    for i, params in enumerate(imdb_experiments):
+        imdb_results, df = distilled_experiment(
+            X_train, Y_train, X_test, Y_test, f"IMDB", params)
+        print(imdb_results)
+
+    print("Prematurely exiting because we already have all the data we need")
+    exit()
+    
     """### Load MNIST data"""
 
     (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
@@ -314,67 +354,6 @@ if __name__ == "__main__":
             X_train, Y_train, X_test, Y_test, f"MNIST", params)
         print(mnist_results)
 
-    """### Load KMNIST data"""
-    train = KMNIST(root="data", download=True, train=True, transform=transforms.ToTensor())
-    test = KMNIST(root="data", download=True, train=False, transform=transforms.ToTensor())
-
-    X_train, Y_train = train.data.numpy(), train.targets.numpy()
-    X_test, Y_test = test.data.numpy(), test.targets.numpy()
-
-    X_train = X_train.reshape(X_train.shape[0], 28*28)
-    X_test = X_test.reshape(X_test.shape[0], 28*28)
-
-    X_train = np.where(X_train > 75, 1, 0)
-    X_test = np.where(X_test > 75, 1, 0)
-
-    kmnist_experiments = [
-        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 1600, "student_num_clauses": 400, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 2400, "student_num_clauses": 400, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-    ]
-    
-    for i, params in enumerate(kmnist_experiments):
-        kmnist_results, df = distilled_experiment(
-            X_train, Y_train, X_test, Y_test, f"KMNIST", params)
-        print(kmnist_results)
-
-    """### Load CIFAR-10 data"""
-    (X_train, Y_train), (X_test, Y_test) = cifar10.load_data()
-        
-    # Input data flattening
-    X_train = X_train.reshape(X_train.shape[0], 32*32, 3)
-    X_test = X_test.reshape(X_test.shape[0], 32*32, 3)
-    Y_train = Y_train.flatten()
-    Y_test = Y_test.flatten()
-
-    cifar10_experiments = [
-        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 500, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 500, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 1600, "student_num_clauses": 400, "T": 500, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 2400, "student_num_clauses": 400, "T": 500, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-    ]
-
-    for i, params in enumerate(cifar10_experiments):
-        cifar10_results, df = distilled_experiment(
-            X_train, Y_train, X_test, Y_test, f"CIFAR-10", params)
-        print(cifar10_results)
-
-    """### Load IMDB data"""
-    (X_train, Y_train), (X_test, Y_test) = prepare_imdb_data()
-    imdb_experiments = [
-        {"teacher_num_clauses": 500, "student_num_clauses": 100, "T": 80*100, "s": 10.0, "teacher_epochs": 30, "student_epochs": 30},
-        {"teacher_num_clauses": 1000, "student_num_clauses": 250, "T": 80*100, "s": 10.0, "teacher_epochs": 15, "student_epochs": 15},
-        {"teacher_num_clauses": 2000, "student_num_clauses": 250, "T": 80*100, "s": 10.0, "teacher_epochs": 15, "student_epochs": 15},
-        {"teacher_num_clauses": 3000, "student_num_clauses": 500, "T": 80*100, "s": 10.0, "teacher_epochs": 15, "student_epochs": 15},
-        {"teacher_num_clauses": 2000, "student_num_clauses": 1000, "T": 80*100, "s": 10.0, "teacher_epochs": 15, "student_epochs": 15},
-    ]
-    
-    for i, params in enumerate(imdb_experiments):
-        imdb_results, df = distilled_experiment(
-            X_train, Y_train, X_test, Y_test, f"IMDB", params)
-        print(imdb_results)
-
     """### Load Fashion MNIST data"""
     (X_train, Y_train), (X_test, Y_test) = fashion_mnist.load_data()
     # Data booleanization
@@ -400,3 +379,49 @@ if __name__ == "__main__":
         print(fmnist_results)
 
 
+    """### Load KMNIST data"""
+    train = KMNIST(root="data", download=True, train=True, transform=transforms.ToTensor())
+    test = KMNIST(root="data", download=True, train=False, transform=transforms.ToTensor())
+
+    X_train, Y_train = train.data.numpy(), train.targets.numpy()
+    X_test, Y_test = test.data.numpy(), test.targets.numpy()
+
+    X_train = X_train.reshape(X_train.shape[0], 28*28)
+    X_test = X_test.reshape(X_test.shape[0], 28*28)
+
+    X_train = np.where(X_train > 75, 1, 0)
+    X_test = np.where(X_test > 75, 1, 0)
+
+    kmnist_experiments = [
+        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 1600, "student_num_clauses": 400, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 2400, "student_num_clauses": 400, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+    ]
+    
+    for i, params in enumerate(kmnist_experiments):
+        kmnist_results, df = distilled_experiment(
+            X_train, Y_train, X_test, Y_test, f"KMNIST", params)
+        print(kmnist_results)
+
+    """### Load CIFAR-10 data
+    (X_train, Y_train), (X_test, Y_test) = cifar10.load_data()
+        
+    # Input data flattening
+    X_train = X_train.reshape(X_train.shape[0], 32*32, 3)
+    X_test = X_test.reshape(X_test.shape[0], 32*32, 3)
+    Y_train = Y_train.flatten()
+    Y_test = Y_test.flatten()
+
+    cifar10_experiments = [
+        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 500, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 500, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 1600, "student_num_clauses": 400, "T": 500, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 2400, "student_num_clauses": 400, "T": 500, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+    ]
+
+    for i, params in enumerate(cifar10_experiments):
+        cifar10_results, df = distilled_experiment(
+            X_train, Y_train, X_test, Y_test, f"CIFAR-10", params)
+        print(cifar10_results)
+    """
