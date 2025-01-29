@@ -11,7 +11,7 @@ import os
 import matplotlib.pyplot as plt
 from sklearn.metrics import mutual_info_score
 from util import save_json
-from imbd_ex import prepare_imdb_data
+from imbd_data import prepare_imdb_data
 from datetime import datetime
 
 # set seeds
