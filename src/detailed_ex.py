@@ -10,9 +10,10 @@ import pandas as pd
 import os
 import matplotlib.pyplot as plt
 from sklearn.metrics import mutual_info_score
-from util import save_json
+from util import save_json, load_pkl, save_pkl, make_dir
 from imbd_data import prepare_imdb_data
 from datetime import datetime
+import pickle as pkl
 import h5py
 # set seeds
 np.random.seed(0)
@@ -29,16 +30,11 @@ DEFAULTS = {
     "over": 0.95,
     "under": 0.05
 }
-def offline_transform(teacher_tm:MultiClassTsetlinMachine,
-                        X_train:np.ndarray, X_test:np.ndarray,
+def drop_over_under(X_train_transformed:np.ndarray, X_test_transformed:np.ndarray,
                         over: float, under: float):
     """
     Transform the data from the teacher's output into a reduced space
     """
-    # TRANSFORM ONLY HAPPENS ONCE
-    X_train_transformed = teacher_tm.transform(X_train)
-    X_test_transformed = teacher_tm.transform(X_test)
-
     # drop clauses that are too active or too inactive
     # this is a form of data mining where we seek out the clauses that are most informative
     # we drop the clauses that are too active because they are too specific and not generalizable
@@ -83,17 +79,24 @@ def distilled_experiment(
 
     print(f"Running {experiment_name}")
     print(params)
-    assert len(X_train) == len(Y_train)
-    assert len(X_test) == len(Y_test)
 
-    assert "teacher_num_clauses" in params
-    assert "T" in params
-    assert "s" in params
-    assert "teacher_epochs" in params
-    assert "student_num_clauses" in params
-    assert "student_epochs" in params
+    # check that the data is valid
+    assert len(X_train) == len(Y_train), "Training data length mismatch"
+    assert len(X_test) == len(Y_test), "Testing data length mismatch"
+
+    # check that the parameters are valid
+    assert "teacher_num_clauses" in params, "Teacher number of clauses not specified"
+    assert "T" in params, "T not specified"
+    assert "s" in params, "s not specified"
+    assert "teacher_epochs" in params, "Teacher epochs not specified"
+    assert "student_num_clauses" in params, "Student number of clauses not specified"
+    assert "student_epochs" in params, "Student epochs not specified"
     assert params["teacher_num_clauses"] > params["student_num_clauses"], "Student clauses should be less than teacher clauses"
+    assert params["over"] > 0, "Over should be a positive float"
+    assert params["under"] > 0, "Under should be a positive float"
+    assert params["over"] + params["under"] <= 1, "Over and under should sum to less than 1"
 
+    # extract parameters
     teacher_num_clauses = params["teacher_num_clauses"]
     T = params["T"]
     s = params["s"]
@@ -103,6 +106,13 @@ def distilled_experiment(
     combined_epochs = teacher_epochs + student_epochs
     over = params["over"]
     under = params["under"]
+
+    # generate experiment id
+    experiment_id = f"{experiment_name}_tnc{teacher_num_clauses}_snc{student_num_clauses}_T{T}_s{s}_te{teacher_epochs}_se{student_epochs}_over{over}_under{under}"
+    print(f"Experiment ID: {experiment_id}")
+
+    # create an experiment directory
+    make_dir(os.path.join(folderpath, experiment_id), overwrite=True)
 
     # create a results dataframe
     results = pd.DataFrame(columns=["acc_test_teacher", "acc_test_student", "acc_test_distilled", "time_train_teacher", "time_train_student",
@@ -146,6 +156,7 @@ def distilled_experiment(
     start = time()
 
     # train baseline
+    teacher_model_path = os.path.join(folderpath, experiment_id, "teacher_checkpoint.pkl")
     for i in range(combined_epochs):
         start_training = time()
         baseline_teacher_tm.fit(X_train, Y_train, epochs=1, incremental=True)
@@ -161,42 +172,23 @@ def distilled_experiment(
 
         print(f'Epoch {i:>3}: Training time: {stop_training-start_training:.2f} s, Testing time: {stop_testing-start_testing:.2f} s, Test accuracy: {result:.2f}%')
 
+        if i == teacher_epochs - 1:
+            save_pkl(baseline_teacher_tm, teacher_model_path)
+            print(f"Saved teacher model to {teacher_model_path}")
     end = time()
-
     print(f'Baseline teacher training time: {end-start:.2f} s')
 
     """### Train the teacher model and student model on teacher's output"""
-    print(
-        f"Recreating a teacher with {teacher_num_clauses} clauses and training for {teacher_epochs} epochs on original data")
-    teacher_tm = MultiClassTsetlinMachine(
-        teacher_num_clauses, T, s, number_of_state_bits=params["number_of_state_bits"], weighted_clauses=params["weighted_clauses"])
-
-    start = time()
-
-    # train baseline
-    for i in range(teacher_epochs):
-        start_training = time()
-        teacher_tm.fit(X_train, Y_train, epochs=1, incremental=True)
-        stop_training = time()
-
-        start_testing = time()
-        result = 100*(teacher_tm.predict(X_test) == Y_test).mean()
-        stop_testing = time()
-
-        results.loc[i, "acc_test_distilled"] = result
-        results.loc[i, "time_train_distilled"] = stop_training - \
-            start_training
-        results.loc[i, "time_test_distilled"] = stop_testing-start_testing
-
-        print(f'Epoch {i:>3}: Training time: {stop_training-start_training:.2f} s, Testing time: {stop_testing-start_testing:.2f} s, Test accuracy: {result:.2f}%')
-
-    print(
-        f"Creating a student with {student_num_clauses} clauses and training for {student_epochs} epochs on teacher's output")
+    print(f"Loading teacher model from {teacher_model_path}, trained for {teacher_epochs} epochs")
+    teacher_tm = load_pkl(teacher_model_path)
     distilled_tm = MultiClassTsetlinMachine(
         student_num_clauses, T, s, number_of_state_bits=params["number_of_state_bits"], weighted_clauses=params["weighted_clauses"])
 
-    X_train_transformed, X_test_transformed = offline_transform(teacher_tm, X_train, X_test, over, under)
+    X_train_transformed = teacher_tm.transform(X_train)
+    X_test_transformed = teacher_tm.transform(X_test)
+    X_train_transformed, X_test_transformed = drop_over_under(X_train_transformed, X_test_transformed, over, under)
 
+    print(f"Training distilled model for {student_epochs} epochs")
     for i in range(teacher_epochs, combined_epochs):
         start_training = time()
         distilled_tm.fit(X_train_transformed, Y_train, epochs=1, incremental=True)
@@ -294,13 +286,13 @@ def distilled_experiment(
         "params": params,
         "experiment_name": experiment_name,
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "id": experiment_name + f"_tnc{teacher_num_clauses}_snc{student_num_clauses}_T{T}_s{s}_te{teacher_epochs}_se{student_epochs}"
+        "id": experiment_id
     }
 
     # save output
-    fpath = os.path.join(folderpath, output["id"])
-    save_json(output, fpath + ".json")
-    results.to_csv(fpath + ".csv")
+    fpath = os.path.join(folderpath, experiment_id)
+    save_json(output, os.path.join(fpath, "output.json"))
+    results.to_csv(os.path.join(fpath, "results.csv"))
 
     # plot results and save
     plt.figure(figsize=(8,6))
@@ -321,7 +313,7 @@ def distilled_experiment(
     times_text = f"teacher: {sum_time_train_teacher:.2f} s, student: {sum_time_train_student:.2f} s, distilled: {sum_time_train_distilled:.2f} s"
     #plt.gcf().text(0.14, 0.14, times_text, fontsize=8, verticalalignment='bottom', bbox=dict(facecolor='white', alpha=1))
 
-    plt.savefig(fpath + ".png")
+    plt.savefig(os.path.join(fpath, "accuracy.png"))
     plt.close()
 
     return output, results
