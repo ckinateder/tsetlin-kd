@@ -39,7 +39,7 @@ def grid_search(
     tqdm.write(f"- other parameters: {other_params}")
     tqdm.write(f"Total iterations: {total_iterations}")
 
-    progress_bar = trange(total_iterations, desc="Grid Search Progress")
+    progress_bar = trange(total_iterations, desc="Grid Search")
     current_iter = 0
 
     # Grid search
@@ -89,7 +89,7 @@ def grid_search(
                     current_iter += 1
                     progress_bar.update(1)
                     progress_bar.set_description(
-                        f"Grid Search Progress (Best: {best_accuracy:.2f}%)"
+                        f"Grid Search (Best: {best_accuracy:.2f}% [{best_params['num_clauses']}, {best_params['threshold']}, {best_params['specificity']}])"
                     )
 
     progress_bar.close()
@@ -114,8 +114,10 @@ if __name__ == "__main__":
         Y_train,
         X_test,
         Y_test,
-        num_clauses_values=[100, 400, 1000],
-        threshold_values=[10, 50, 150],
-        specificity_values=[3.0, 10.0, 15.0],
-        epochs=5,
+        num_clauses_values=[100, 400, 1000, 2000],
+        threshold_values=[5, 8, 10, 30, 50, 90],
+        specificity_values=[3.0, 7.5, 10.0, 15.0, 20.0, 34.0],
+        epochs=10,
     )
+
+    print(best_params)

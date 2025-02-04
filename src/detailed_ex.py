@@ -13,7 +13,7 @@ from sklearn.metrics import mutual_info_score
 from util import save_json
 from imbd_data import prepare_imdb_data
 from datetime import datetime
-
+import h5py
 # set seeds
 np.random.seed(0)
 
@@ -25,8 +25,41 @@ DEFAULTS = {
     "teacher_epochs": 60,
     "student_epochs": 60,
     "weighted_clauses": True,
-    "number_of_state_bits": 8
+    "number_of_state_bits": 8,
+    "over": 0.95,
+    "under": 0.05
 }
+def offline_transform(teacher_tm:MultiClassTsetlinMachine,
+                        X_train:np.ndarray, X_test:np.ndarray,
+                        over: float, under: float):
+    """
+    Transform the data from the teacher's output into a reduced space
+    """
+    # TRANSFORM ONLY HAPPENS ONCE
+    X_train_transformed = teacher_tm.transform(X_train)
+    X_test_transformed = teacher_tm.transform(X_test)
+
+    # drop clauses that are too active or too inactive
+    # this is a form of data mining where we seek out the clauses that are most informative
+    # we drop the clauses that are too active because they are too specific and not generalizable
+    # we drop the clauses that are too inactive because they are too general and not specific enough
+    # this should reduce the number of clauses and make the student learn faster
+    # this works pretty well with over = 0.95 and under = 0.0
+
+    sums = np.sum(X_train_transformed, axis=0) # shape is (num_classes*num_clauses)
+    normalized_sums = sums / X_train_transformed.shape[0] # get the sum of each clause over all samples divided by the number of samples
+
+    # find where to drop
+    over_clauses = np.where(normalized_sums > over)[0]
+    under_clauses = np.where(normalized_sums < under)[0]
+    clauses_to_drop = np.concatenate([over_clauses, under_clauses])
+
+    X_train_reduced = np.delete(X_train_transformed, clauses_to_drop, axis=1) # delete the clauses from the training data
+    X_test_reduced = np.delete(X_test_transformed, clauses_to_drop, axis=1) # delete the clauses from the testing data
+    reduction_percentage = 100*(1 - len(clauses_to_drop)/X_train_transformed.shape[1]) # calculate the percentage of clauses dropped
+    print(f"Dropped {len(clauses_to_drop)} clauses, {reduction_percentage:.2f}% reduction")
+    
+    return X_train_reduced, X_test_reduced
 
 def distilled_experiment(
     X_train, Y_train, X_test, Y_test,
@@ -68,6 +101,8 @@ def distilled_experiment(
     student_num_clauses = params["student_num_clauses"]
     student_epochs = params["student_epochs"]
     combined_epochs = teacher_epochs + student_epochs
+    over = params["over"]
+    under = params["under"]
 
     # create a results dataframe
     results = pd.DataFrame(columns=["acc_test_teacher", "acc_test_student", "acc_test_distilled", "time_train_teacher", "time_train_student",
@@ -160,16 +195,16 @@ def distilled_experiment(
     distilled_tm = MultiClassTsetlinMachine(
         student_num_clauses, T, s, number_of_state_bits=params["number_of_state_bits"], weighted_clauses=params["weighted_clauses"])
 
-    # train student on teacher's output
+    X_train_transformed, X_test_transformed = offline_transform(teacher_tm, X_train, X_test, over, under)
+
     for i in range(teacher_epochs, combined_epochs):
         start_training = time()
-        distilled_tm.fit(teacher_tm.transform(X_train),
-                       Y_train, epochs=1, incremental=True)
+        distilled_tm.fit(X_train_transformed, Y_train, epochs=1, incremental=True)
         stop_training = time()
 
         start_testing = time()
         result = 100 * \
-            (distilled_tm.predict(teacher_tm.transform(X_test)) == Y_test).mean()
+            (distilled_tm.predict(X_test_transformed) == Y_test).mean()
         stop_testing = time()
 
         results.loc[i, "acc_test_distilled"] = result
@@ -281,6 +316,11 @@ def distilled_experiment(
     # add text of parameters
     params_text = "\n".join([f"{k}: {v}" for k, v in params.items()])
     plt.gcf().text(0.68, 0.14, params_text, fontsize=8, verticalalignment='bottom', bbox=dict(facecolor='white', alpha=1))
+
+    # add text of sum training times
+    times_text = f"teacher: {sum_time_train_teacher:.2f} s, student: {sum_time_train_student:.2f} s, distilled: {sum_time_train_distilled:.2f} s"
+    #plt.gcf().text(0.14, 0.14, times_text, fontsize=8, verticalalignment='bottom', bbox=dict(facecolor='white', alpha=1))
+
     plt.savefig(fpath + ".png")
     plt.close()
 
@@ -288,46 +328,38 @@ def distilled_experiment(
 
 
 if __name__ == "__main__":
-    """### Load MNIST-100 data"""
-    data = np.load(os.path.join("data", "mnist100_compressed.npz"))
-    X_train, Y_train = data['train_images'], data['train_labels']
-    X_test, Y_test = data['test_images'], data['test_labels']
+    """### Load MNIST-3D data"""
+    with h5py.File(os.path.join("data", "mnist3d.h5"), "r") as hf:
+        X_train = hf["X_train"][:]
+        Y_train = hf["y_train"][:]    
+        X_test = hf["X_test"][:]  
+        Y_test = hf["y_test"][:]  
+
+    # Print shapes with labels
+    print(f"X_train shape: {X_train.shape}, Y_train shape: {Y_train.shape}")
+    print(f"X_test shape: {X_test.shape}, Y_test shape: {Y_test.shape}")
 
     # Data booleanization
-    X_train = np.where(X_train > 75, 1, 0) 
-    X_test = np.where(X_test > 75, 1, 0)
+    X_train = np.where(X_train > 0.3, 1, 0)
+    X_test = np.where(X_test > 0.3, 1, 0)
 
-    # Input data flattening
-    X_train = X_train.reshape(X_train.shape[0], 28*56)
-    X_test = X_test.reshape(X_test.shape[0], 28*56)
+    X_train = X_train.reshape(X_train.shape[0], 16*16*16)
+    X_test = X_test.reshape(X_test.shape[0], 16*16*16)
 
-    mnist100_experiments = [
-        { "teacher_num_clauses": 1000, "student_num_clauses": 500, "T": 200, "s": 20.0, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 4000, "student_num_clauses": 500, "T": 200, "s": 20.0, "teacher_epochs": 30, "student_epochs": 30 }, 
-        { "teacher_num_clauses": 4000, "student_num_clauses": 1000, "T": 200, "s": 20.0, "teacher_epochs": 30, "student_epochs": 30 },        { "teacher_num_clauses": 4000, "student_num_clauses": 500, "T": 200, "s": 20.0, "teacher_epochs": 30, "student_epochs": 30 },
+    # so far, best params are: num_clauses=750, threshold=50, specificity=3.0
+    #         { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 20 },
+
+    mnist3d_experiments = [
+        { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "over": 0.95, "under": 0.05 },
+        { "teacher_num_clauses": 2000, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30 },
+        { "teacher_num_clauses": 1200, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30 },
     ]
-    
-    for i, params in enumerate(mnist100_experiments):
-        mnist100_results, df = distilled_experiment(
-            X_train, Y_train, X_test, Y_test, f"MNIST-100", params)
-        print(mnist100_results)
 
-    """### Load IMDB data"""
-    (X_train, Y_train), (X_test, Y_test) = prepare_imdb_data()
-    imdb_experiments = [
-        {"teacher_num_clauses": 2000, "student_num_clauses": 250, "T": 80*100, "s": 10.0, "teacher_epochs": 30, "student_epochs": 30},
-        {"teacher_num_clauses": 3000, "student_num_clauses": 500, "T": 80*100, "s": 10.0, "teacher_epochs": 30, "student_epochs": 30},
-        {"teacher_num_clauses": 10000, "student_num_clauses": 4000, "T": 80*100, "s": 10.0, "teacher_epochs": 30, "student_epochs": 30},
-    ]
-    
-    for i, params in enumerate(imdb_experiments):
-        imdb_results, df = distilled_experiment(
-            X_train, Y_train, X_test, Y_test, f"IMDB", params)
-        print(imdb_results)
+    for i, params in enumerate(mnist3d_experiments):
+        mnist3d_results, df = distilled_experiment(
+            X_train, Y_train, X_test, Y_test, f"MNIST-3D", params)
+        print(mnist3d_results)
 
-    print("Prematurely exiting because we already have all the data we need")
-    exit()
-    
     """### Load MNIST data"""
 
     (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
@@ -343,10 +375,86 @@ if __name__ == "__main__":
 
     mnist_experiments = [
         { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 10, "student_epochs": 10 },
-        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 1600, "student_num_clauses": 400, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 2400, "student_num_clauses": 400, "T": 10, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 8, "s": 7.0, "teacher_epochs": 30, "student_epochs": 60 },
+        { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 8, "s": 7.0,"teacher_epochs": 30, "student_epochs": 60 },
+        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 8, "s": 7.0, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 8, "s": 7.0,"teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 1600, "student_num_clauses": 400, "T": 8, "s": 7.0, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 2400, "student_num_clauses": 400, "T": 8, "s": 7.0, "teacher_epochs": 30, "student_epochs": 30 },
+    ]
+
+    for i, params in enumerate(mnist_experiments):
+        mnist_results, df = distilled_experiment(
+            X_train, Y_train, X_test, Y_test, f"MNIST", params)
+        print(mnist_results)
+
+    ############################
+    print("Prematurely exiting because we already have all the data we need")
+    exit()
+
+    ############################
+    """### Load IMDB data"""
+    (X_train, Y_train), (X_test, Y_test) = prepare_imdb_data()
+    imdb_experiments = [
+        {"teacher_num_clauses": 10000, "student_num_clauses": 2000, "T": 80*100, "s": 10.0, "teacher_epochs": 30, "student_epochs": 60},
+    ]
+    
+    for i, params in enumerate(imdb_experiments):
+        imdb_results, df = distilled_experiment(
+            X_train, Y_train, X_test, Y_test, f"IMDB", params)
+        print(imdb_results)
+
+    """### Load MNIST-3D data"""
+    with h5py.File(os.path.join("data", "mnist3d.h5"), "r") as hf:
+        X_train = hf["X_train"][:]
+        Y_train = hf["y_train"][:]    
+        X_test = hf["X_test"][:]  
+        Y_test = hf["y_test"][:]  
+
+    # Print shapes with labels
+    print(f"X_train shape: {X_train.shape}, Y_train shape: {Y_train.shape}")
+    print(f"X_test shape: {X_test.shape}, Y_test shape: {Y_test.shape}")
+
+    # Data booleanization
+    X_train = np.where(X_train > 0.3, 1, 0)
+    X_test = np.where(X_test > 0.3, 1, 0)
+
+    X_train = X_train.reshape(X_train.shape[0], 16*16*16)
+    X_test = X_test.reshape(X_test.shape[0], 16*16*16)
+
+    # so far, best params are: num_clauses=750, threshold=50, specificity=3.0
+    #         { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 20 },
+
+    mnist3d_experiments = [
+        { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30 },
+        { "teacher_num_clauses": 2000, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30 },
+        { "teacher_num_clauses": 1200, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30 },
+    ]
+
+    for i, params in enumerate(mnist3d_experiments):
+        mnist3d_results, df = distilled_experiment(
+            X_train, Y_train, X_test, Y_test, f"MNIST-3D", params)
+        print(mnist3d_results)
+
+    """### Load MNIST data"""
+
+    (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
+    # Data booleanization
+    X_train = np.where(X_train > 75, 1, 0)
+    X_test = np.where(X_test > 75, 1, 0)
+
+    # Input data flattening
+    X_train = X_train.reshape(X_train.shape[0], 28*28)
+    X_test = X_test.reshape(X_test.shape[0], 28*28)
+    Y_train = Y_train.flatten()
+    Y_test = Y_test.flatten()
+
+    mnist_experiments = [
+        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 10, "student_epochs": 10 },
+        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 8, "s": 7.0, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 8, "s": 7.0,"teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 1600, "student_num_clauses": 400, "T": 8, "s": 7.0, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 2400, "student_num_clauses": 400, "T": 8, "s": 7.0, "teacher_epochs": 30, "student_epochs": 30 },
     ]
 
     for i, params in enumerate(mnist_experiments):
