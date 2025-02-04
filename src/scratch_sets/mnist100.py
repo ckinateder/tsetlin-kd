@@ -2,10 +2,16 @@ import numpy as np
 from pyTsetlinMachineParallel.tm import MultiClassTsetlinMachine
 import os
 from time import time
+from grid_search import grid_search
 
 # https://www.kaggle.com/datasets/martininf1n1ty/mnist100/data
 data = np.load(os.path.join("data", "mnist100_compressed.npz"))
-X_test, Y_test, X_train, Y_train =  data['test_images'], data['test_labels'], data['train_images'], data['train_labels']
+X_test, Y_test, X_train, Y_train = (
+    data["test_images"],
+    data["test_labels"],
+    data["train_images"],
+    data["train_labels"],
+)
 # Print shapes with labels
 print(f"X_train shape: {X_train.shape}, Y_train shape: {Y_train.shape}")
 print(f"X_test shape: {X_test.shape}, Y_test shape: {Y_test.shape}")
@@ -14,23 +20,23 @@ print(f"X_test shape: {X_test.shape}, Y_test shape: {Y_test.shape}")
 X_train = np.where(X_train > 75, 1, 0)
 X_test = np.where(X_test > 75, 1, 0)
 
-X_train = X_train.reshape(X_train.shape[0], 28*56)
-X_test = X_test.reshape(X_test.shape[0], 28*56)
-num_clauses = 4000
-threshold = 200
-specificity = 15.0
-tm = MultiClassTsetlinMachine(num_clauses, threshold, specificity)
-epochs = 30
-print(f"\nAccuracy over {epochs} epochs:\n")
-for i in range(epochs):
-    start_training = time()
-    tm.fit(X_train, Y_train, epochs=1, incremental=True)
-    stop_training = time()
+X_train = X_train.reshape(X_train.shape[0], 28 * 56)
+X_test = X_test.reshape(X_test.shape[0], 28 * 56)
 
-    start_testing = time()
-    result = 100*(tm.predict(X_test) == Y_test).mean()
-    stop_testing = time()
+# Grid search
+num_clauses_values = [500, 1000, 2000]
+threshold_values = [10, 70, 100, 250, 200, ]
+specificity_values = [2.0, 5.0, 10.0, 17.0]
+epochs = 5
 
-    print("#%d Accuracy: %.2f%% Training: %.2fs Testing: %.2fs" % (i+1, result, stop_training-start_training, stop_testing-start_testing))
-
-print(tm.predict(X_test))
+best_params = grid_search(
+    X_train,
+    Y_train,
+    X_test,
+    Y_test,
+    num_clauses_values=num_clauses_values,
+    threshold_values=threshold_values,
+    specificity_values=specificity_values,
+    epochs=epochs,
+)
+print(best_params)

@@ -146,7 +146,7 @@ def distilled_experiment(
     end = time()
 
     print(f'Baseline student training time: {end-start:.2f} s')
-
+    save_pkl(baseline_distilled_tm, os.path.join(folderpath, experiment_id, "student_baseline.pkl"))
     """### Train the baseline teacher model"""
     print(
         f"Creating a baseline teacher with {teacher_num_clauses} clauses and training on original data")
@@ -177,6 +177,7 @@ def distilled_experiment(
             print(f"Saved teacher model to {teacher_model_path}")
     end = time()
     print(f'Baseline teacher training time: {end-start:.2f} s')
+    save_pkl(baseline_teacher_tm, os.path.join(folderpath, experiment_id, "teacher_baseline.pkl"))
 
     """### Train the teacher model and student model on teacher's output"""
     print(f"Loading teacher model from {teacher_model_path}, trained for {teacher_epochs} epochs")
@@ -188,6 +189,7 @@ def distilled_experiment(
     X_test_transformed = teacher_tm.transform(X_test)
     X_train_transformed, X_test_transformed = drop_over_under(X_train_transformed, X_test_transformed, over, under)
 
+    start = time()
     print(f"Training distilled model for {student_epochs} epochs")
     for i in range(teacher_epochs, combined_epochs):
         start_training = time()
@@ -209,6 +211,7 @@ def distilled_experiment(
     end = time()
 
     print(f'Teacher-student training time: {end-start:.2f} s')
+    save_pkl(distilled_tm, os.path.join(folderpath, experiment_id, "distilled.pkl"))
 
     # calculate information transfer
 

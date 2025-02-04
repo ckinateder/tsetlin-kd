@@ -114,9 +114,9 @@ if __name__ == "__main__":
         Y_train,
         X_test,
         Y_test,
-        num_clauses_values=[100, 400, 1000, 2000],
-        threshold_values=[5, 8, 10, 30, 50, 90],
-        specificity_values=[3.0, 7.5, 10.0, 15.0, 20.0, 34.0],
+        num_clauses_values=[400],
+        threshold_values=[2, 5, 8, 10, 30, 50],
+        specificity_values=[1.0, 3.0, 7.5, 10.0, 15.0],
         epochs=10,
     )
 

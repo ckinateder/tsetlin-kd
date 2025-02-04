@@ -25,6 +25,8 @@ X_test = np.where(X_test > 0.3, 1, 0)
 X_train = X_train.reshape(X_train.shape[0], 16*16*16)
 X_test = X_test.reshape(X_test.shape[0], 16*16*16)
 
-best_params = grid_search(X_train, Y_train, X_test, Y_test, num_clauses_values=[500, 1000, 4000], threshold_values=[50, 100, 150, 200], specificity_values=[10.0, 15.0, 20.0, 30.0], epochs=5)
+best_params = grid_search(X_train, Y_train, X_test, Y_test, num_clauses_values=[100, 250, 500, 750], threshold_values=[5, 10, 25, 50, 100, 150], specificity_values=[1.0, 3.0, 8.0, 12.0], epochs=5)
 
 print(best_params)
+
+# so far, best params are: num_clauses=750, threshold=50, specificity=3.0
