@@ -10,10 +10,10 @@ import pandas as pd
 import os
 import matplotlib.pyplot as plt
 from sklearn.metrics import mutual_info_score
-from util import save_json, load_pkl, save_pkl, make_dir
+from util import save_json, load_pkl, save_pkl, make_dir, rm_file
 from imbd_data import prepare_imdb_data
 from datetime import datetime
-import pickle as pkl
+from tqdm import tqdm, trange
 import h5py
 # set seeds
 np.random.seed(0)
@@ -52,16 +52,18 @@ def drop_over_under(X_train_transformed:np.ndarray, X_test_transformed:np.ndarra
 
     X_train_reduced = np.delete(X_train_transformed, clauses_to_drop, axis=1) # delete the clauses from the training data
     X_test_reduced = np.delete(X_test_transformed, clauses_to_drop, axis=1) # delete the clauses from the testing data
-    reduction_percentage = 100*(1 - len(clauses_to_drop)/X_train_transformed.shape[1]) # calculate the percentage of clauses dropped
-    print(f"Dropped {len(clauses_to_drop)} clauses, {reduction_percentage:.2f}% reduction")
+    num_clauses_dropped = len(clauses_to_drop)
+    reduction_percentage = 100*(num_clauses_dropped/X_train_transformed.shape[1]) # calculate the percentage of clauses dropped
+    print(f"Dropped {num_clauses_dropped} clauses from {X_train_transformed.shape[1]} clauses, {reduction_percentage:.2f}% reduction")
     
-    return X_train_reduced, X_test_reduced
+    return X_train_reduced, X_test_reduced, num_clauses_dropped
 
 def distilled_experiment(
     X_train, Y_train, X_test, Y_test,
     experiment_name,
     params=DEFAULTS,
-    folderpath="experiments"
+    folderpath="experiments",
+    save_all=False
 ) -> dict:
     """
     Train a baseline student model with teacher_epochs + student_epochs epochs
@@ -127,7 +129,7 @@ def distilled_experiment(
     start = time()
 
     # train baseline
-    for i in range(combined_epochs):
+    for i in trange(combined_epochs, desc="Student", leave=False, dynamic_ncols=True):
         start_training = time()
         baseline_distilled_tm.fit(X_train, Y_train, epochs=1, incremental=True)
         stop_training = time()
@@ -141,12 +143,14 @@ def distilled_experiment(
         results.loc[i, "time_train_student"] = stop_training-start_training
         results.loc[i, "time_test_student"] = stop_testing-start_testing
 
-        print(f'Epoch {i:>3}: Training time: {stop_training-start_training:.2f} s, Testing time: {stop_testing-start_testing:.2f} s, Test accuracy: {result:.2f}%')
+        tqdm.write(f'Epoch {i:>3}: Training time: {stop_training-start_training:.2f} s, Testing time: {stop_testing-start_testing:.2f} s, Test accuracy: {result:.2f}%')
 
     end = time()
 
     print(f'Baseline student training time: {end-start:.2f} s')
-    save_pkl(baseline_distilled_tm, os.path.join(folderpath, experiment_id, "student_baseline.pkl"))
+    if save_all:
+        save_pkl(baseline_distilled_tm, os.path.join(folderpath, experiment_id, "student_baseline.pkl"))
+
     """### Train the baseline teacher model"""
     print(
         f"Creating a baseline teacher with {teacher_num_clauses} clauses and training on original data")
@@ -157,7 +161,7 @@ def distilled_experiment(
 
     # train baseline
     teacher_model_path = os.path.join(folderpath, experiment_id, "teacher_checkpoint.pkl")
-    for i in range(combined_epochs):
+    for i in trange(combined_epochs, desc="Teacher", leave=False, dynamic_ncols=True):
         start_training = time()
         baseline_teacher_tm.fit(X_train, Y_train, epochs=1, incremental=True)
         stop_training = time()
@@ -170,35 +174,47 @@ def distilled_experiment(
         results.loc[i, "time_train_teacher"] = stop_training-start_training
         results.loc[i, "time_test_teacher"] = stop_testing-start_testing
 
-        print(f'Epoch {i:>3}: Training time: {stop_training-start_training:.2f} s, Testing time: {stop_testing-start_testing:.2f} s, Test accuracy: {result:.2f}%')
+        tqdm.write(f'Epoch {i:>3}: Training time: {stop_training-start_training:.2f} s, Testing time: {stop_testing-start_testing:.2f} s, Test accuracy: {result:.2f}%')
+
+        # if we are in the teacher training phase, we want to save the teacher model and use it for the distilled model
+        # results should reflect the teacher's performance
+        if i < teacher_epochs:
+            results.loc[i, "acc_test_distilled"] = result
+            results.loc[i, "time_train_distilled"] = stop_training-start_training
+            results.loc[i, "time_test_distilled"] = stop_testing-start_testing
 
         if i == teacher_epochs - 1:
             save_pkl(baseline_teacher_tm, teacher_model_path)
-            print(f"Saved teacher model to {teacher_model_path}")
+            tqdm.write(f"Saved teacher model to {teacher_model_path}")
+
     end = time()
     print(f'Baseline teacher training time: {end-start:.2f} s')
-    save_pkl(baseline_teacher_tm, os.path.join(folderpath, experiment_id, "teacher_baseline.pkl"))
+    if save_all:
+        save_pkl(baseline_teacher_tm, os.path.join(folderpath, experiment_id, "teacher_baseline.pkl"))
 
     """### Train the teacher model and student model on teacher's output"""
     print(f"Loading teacher model from {teacher_model_path}, trained for {teacher_epochs} epochs")
     teacher_tm = load_pkl(teacher_model_path)
+    rm_file(teacher_model_path) # remove the teacher model file. we don't need it anymore
+
     distilled_tm = MultiClassTsetlinMachine(
         student_num_clauses, T, s, number_of_state_bits=params["number_of_state_bits"], weighted_clauses=params["weighted_clauses"])
 
     X_train_transformed = teacher_tm.transform(X_train)
     X_test_transformed = teacher_tm.transform(X_test)
-    X_train_transformed, X_test_transformed = drop_over_under(X_train_transformed, X_test_transformed, over, under)
+    X_train_downsampled, X_test_downsampled, num_clauses_dropped = drop_over_under(X_train_transformed, X_test_transformed, over, under)
+    reduction_percentage = 100*(num_clauses_dropped/X_train_transformed.shape[1]) # calculate the percentage of clauses dropped
 
     start = time()
     print(f"Training distilled model for {student_epochs} epochs")
-    for i in range(teacher_epochs, combined_epochs):
+    for i in trange(teacher_epochs, combined_epochs, desc="Distilled", leave=False, dynamic_ncols=True):
         start_training = time()
-        distilled_tm.fit(X_train_transformed, Y_train, epochs=1, incremental=True)
+        distilled_tm.fit(X_train_downsampled, Y_train, epochs=1, incremental=True)
         stop_training = time()
 
         start_testing = time()
         result = 100 * \
-            (distilled_tm.predict(X_test_transformed) == Y_test).mean()
+            (distilled_tm.predict(X_test_downsampled) == Y_test).mean()
         stop_testing = time()
 
         results.loc[i, "acc_test_distilled"] = result
@@ -206,12 +222,13 @@ def distilled_experiment(
             start_training
         results.loc[i, "time_test_distilled"] = stop_testing-start_testing
 
-        print(f'Epoch {i:>3}: Training time: {stop_training-start_training:.2f} s, Testing time: {stop_testing-start_testing:.2f} s, Test accuracy: {result:.2f}%')
+        tqdm.write(f'Epoch {i:>3}: Training time: {stop_training-start_training:.2f} s, Testing time: {stop_testing-start_testing:.2f} s, Test accuracy: {result:.2f}%')
 
     end = time()
 
     print(f'Teacher-student training time: {end-start:.2f} s')
-    save_pkl(distilled_tm, os.path.join(folderpath, experiment_id, "distilled.pkl"))
+    if save_all:
+        save_pkl(distilled_tm, os.path.join(folderpath, experiment_id, "distilled.pkl"))
 
     # calculate information transfer
 
@@ -268,7 +285,6 @@ def distilled_experiment(
     total_time = time() - exp_start
 
     output = {
-        "results": results.to_dict(),
         "analysis": {
             "avg_acc_test_teacher": avg_acc_test_teacher,
             "std_acc_test_teacher": std_acc_test_teacher,
@@ -280,7 +296,9 @@ def distilled_experiment(
             "sum_time_train_teacher": sum_time_train_teacher,
             "sum_time_train_student": sum_time_train_student,
             "sum_time_train_distilled": sum_time_train_distilled,
-            "total_time": total_time
+            "total_time": total_time,
+            "num_clauses_dropped": num_clauses_dropped,
+            "num_clauses_dropped_percentage": reduction_percentage
         },
         "mutual_information": {
             "sklearn_teacher": mi_sklearn_dt,
@@ -289,7 +307,8 @@ def distilled_experiment(
         "params": params,
         "experiment_name": experiment_name,
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "id": experiment_id
+        "id": experiment_id,
+        "results": results.to_dict(),
     }
 
     # save output
@@ -298,24 +317,26 @@ def distilled_experiment(
     results.to_csv(os.path.join(fpath, "results.csv"))
 
     # plot results and save
-    plt.figure(figsize=(8,6))
+    plt.figure(figsize=(8,6), dpi=300)
     plt.plot(results["acc_test_distilled"], label="Distilled")
     plt.plot(results["acc_test_teacher"], label="Teacher", alpha=0.5)
     plt.plot(results["acc_test_student"], label="Student", alpha=0.5)
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
-    plt.title(f"Testing Accuracy of {experiment_name} Over {combined_epochs} Epochs")
+    #plt.title(f"Testing Accuracy of {experiment_name} Over {combined_epochs} Epochs")
     plt.xticks(range(0, len(results), 5))
     plt.legend(loc="upper left")
     plt.grid(linestyle='dotted')
-    # add text of parameters
-    params_text = "\n".join([f"{k}: {v}" for k, v in params.items()])
-    plt.gcf().text(0.68, 0.14, params_text, fontsize=8, verticalalignment='bottom', bbox=dict(facecolor='white', alpha=1))
-
-    # add text of sum training times
-    times_text = f"teacher: {sum_time_train_teacher:.2f} s, student: {sum_time_train_student:.2f} s, distilled: {sum_time_train_distilled:.2f} s"
-    #plt.gcf().text(0.14, 0.14, times_text, fontsize=8, verticalalignment='bottom', bbox=dict(facecolor='white', alpha=1))
-
+    # add text of parameters for teacher_num_clauses, student_num_clauses, teacher_epochs, student_epochs, over, under
+    params_text = (
+        f"teacher_num_clauses: {teacher_num_clauses}\n"
+        f"student_num_clauses: {student_num_clauses}\n"
+        f"teacher_epochs: {teacher_epochs}\n"
+        f"student_epochs: {student_epochs}\n"
+        f"over: {over}\n"
+        f"under: {under}\n"
+    )
+    #plt.gcf().text(0.68, 0.14, params_text, fontsize=8, verticalalignment='bottom', bbox=dict(facecolor='white', alpha=1))
     plt.savefig(os.path.join(fpath, "accuracy.png"))
     plt.close()
 
@@ -323,6 +344,97 @@ def distilled_experiment(
 
 
 if __name__ == "__main__":
+    """### Load MNIST-3D data"""
+    with h5py.File(os.path.join("data", "mnist3d.h5"), "r") as hf:
+        X_train = hf["X_train"][:]
+        Y_train = hf["y_train"][:]    
+        X_test = hf["X_test"][:]  
+        Y_test = hf["y_test"][:]  
+
+    # Print shapes with labels
+    print(f"X_train shape: {X_train.shape}, Y_train shape: {Y_train.shape}")
+    print(f"X_test shape: {X_test.shape}, Y_test shape: {Y_test.shape}")
+
+    # Data booleanization
+    X_train = np.where(X_train > 0.3, 1, 0)
+    X_test = np.where(X_test > 0.3, 1, 0)
+
+    X_train = X_train.reshape(X_train.shape[0], 16*16*16)
+    X_test = X_test.reshape(X_test.shape[0], 16*16*16)
+
+    # so far, best params are: num_clauses=750, threshold=50, specificity=3.0
+    #         { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 20 },
+
+    mnist3d_experiments = [
+        { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "over": 0.95, "under": 0.05 },
+        { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "over": 0.95, "under": 0.05 },
+        { "teacher_num_clauses": 2000, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30 },
+        { "teacher_num_clauses": 1200, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30 },
+    ]
+
+    for i, params in enumerate(mnist3d_experiments):
+        mnist3d_results, df = distilled_experiment(
+            X_train, Y_train, X_test, Y_test, f"MNIST-3D", params)
+        print(mnist3d_results)
+
+
+    ############################
+    print("Prematurely exiting because we already have all the data we need")
+    exit()
+
+    ############################
+
+    """### Load KMNIST data"""
+    train = KMNIST(root="data", download=True, train=True, transform=transforms.ToTensor())
+    test = KMNIST(root="data", download=True, train=False, transform=transforms.ToTensor())
+
+    X_train, Y_train = train.data.numpy(), train.targets.numpy()
+    X_test, Y_test = test.data.numpy(), test.targets.numpy()
+
+    X_train = X_train.reshape(X_train.shape[0], 28*28)
+    X_test = X_test.reshape(X_test.shape[0], 28*28)
+
+    X_train = np.where(X_train > 75, 1, 0)
+    X_test = np.where(X_test > 75, 1, 0)
+
+    kmnist_experiments = [
+        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 1600, "student_num_clauses": 400, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 2400, "student_num_clauses": 400, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30 },
+    ]
+    
+    for i, params in enumerate(kmnist_experiments):
+        kmnist_results, df = distilled_experiment(
+            X_train, Y_train, X_test, Y_test, f"KMNIST", params)
+        print(kmnist_results)
+    """### Load MNIST data"""
+
+    (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
+    # Data booleanization
+    X_train = np.where(X_train > 75, 1, 0)
+    X_test = np.where(X_test > 75, 1, 0)
+
+    # Input data flattening
+    X_train = X_train.reshape(X_train.shape[0], 28*28)
+    X_test = X_test.reshape(X_test.shape[0], 28*28)
+    Y_train = Y_train.flatten()
+    Y_test = Y_test.flatten()
+
+    mnist_experiments = [
+        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 5, "s": 10.0, "teacher_epochs": 30, "student_epochs": 60 },
+        { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 8, "s": 7.0,"teacher_epochs": 30, "student_epochs": 60 },
+        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 8, "s": 7.0, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 8, "s": 7.0,"teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 1600, "student_num_clauses": 400, "T": 8, "s": 7.0, "teacher_epochs": 30, "student_epochs": 30 },
+        { "teacher_num_clauses": 2400, "student_num_clauses": 400, "T": 8, "s": 7.0, "teacher_epochs": 30, "student_epochs": 30 },
+    ]
+
+    for i, params in enumerate(mnist_experiments):
+        mnist_results, df = distilled_experiment(
+            X_train, Y_train, X_test, Y_test, f"MNIST", params)
+        print(mnist_results)
+        
     """### Load MNIST-3D data"""
     with h5py.File(os.path.join("data", "mnist3d.h5"), "r") as hf:
         X_train = hf["X_train"][:]
@@ -355,39 +467,6 @@ if __name__ == "__main__":
             X_train, Y_train, X_test, Y_test, f"MNIST-3D", params)
         print(mnist3d_results)
 
-    """### Load MNIST data"""
-
-    (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
-    # Data booleanization
-    X_train = np.where(X_train > 75, 1, 0)
-    X_test = np.where(X_test > 75, 1, 0)
-
-    # Input data flattening
-    X_train = X_train.reshape(X_train.shape[0], 28*28)
-    X_test = X_test.reshape(X_test.shape[0], 28*28)
-    Y_train = Y_train.flatten()
-    Y_test = Y_test.flatten()
-
-    mnist_experiments = [
-        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 10, "s": 5, "teacher_epochs": 10, "student_epochs": 10 },
-        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 8, "s": 7.0, "teacher_epochs": 30, "student_epochs": 60 },
-        { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 8, "s": 7.0,"teacher_epochs": 30, "student_epochs": 60 },
-        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 8, "s": 7.0, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 8, "s": 7.0,"teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 1600, "student_num_clauses": 400, "T": 8, "s": 7.0, "teacher_epochs": 30, "student_epochs": 30 },
-        { "teacher_num_clauses": 2400, "student_num_clauses": 400, "T": 8, "s": 7.0, "teacher_epochs": 30, "student_epochs": 30 },
-    ]
-
-    for i, params in enumerate(mnist_experiments):
-        mnist_results, df = distilled_experiment(
-            X_train, Y_train, X_test, Y_test, f"MNIST", params)
-        print(mnist_results)
-
-    ############################
-    print("Prematurely exiting because we already have all the data we need")
-    exit()
-
-    ############################
     """### Load IMDB data"""
     (X_train, Y_train), (X_test, Y_test) = prepare_imdb_data()
     imdb_experiments = [

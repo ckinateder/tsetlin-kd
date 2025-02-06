@@ -1,8 +1,10 @@
 import numpy as np
 from pyTsetlinMachineParallel.tm import MultiClassTsetlinMachine
-from tensorflow.keras.datasets import mnist
+from tensorflow.keras.datasets import mnist, fashion_mnist
 from time import time
 from tqdm import tqdm, trange
+import h5py
+import os
 
 def grid_search(
     X_train,
@@ -104,8 +106,36 @@ def grid_search(
 
 
 if __name__ == "__main__":
+    # Load and prepare data with mnist-3d
+    """### Load MNIST-3D data"""
+    with h5py.File(os.path.join("data", "mnist3d.h5"), "r") as hf:
+        X_train = hf["X_train"][:]
+        Y_train = hf["y_train"][:]    
+        X_test = hf["X_test"][:]  
+        Y_test = hf["y_test"][:]  
+
+    # Print shapes with labels
+    print(f"X_train shape: {X_train.shape}, Y_train shape: {Y_train.shape}")
+    print(f"X_test shape: {X_test.shape}, Y_test shape: {Y_test.shape}")
+
+    # Data booleanization
+    X_train = np.where(X_train > 0.32, 1, 0)
+    X_test = np.where(X_test > 0.32, 1, 0)
+
+    best_params = grid_search(
+        X_train,
+        Y_train,
+        X_test,
+        Y_test,
+        num_clauses_values=[1000],
+        threshold_values=[20, 45, 60, 100],
+        specificity_values=[1.5, 3.0, 8.0],
+        epochs=5,
+    )
+
+    print(best_params)
     # Load and prepare data with mnist
-    (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
+    (X_train, Y_train), (X_test, Y_test) = fashion_mnist.load_data()
     X_train = np.where(X_train.reshape((X_train.shape[0], 28*28)) > 75, 1, 0) 
     X_test = np.where(X_test.reshape((X_test.shape[0], 28*28)) > 75, 1, 0) 
 
