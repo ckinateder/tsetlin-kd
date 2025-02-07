@@ -107,6 +107,23 @@ def grid_search(
 
 
 if __name__ == "__main__":
+    # Load and prepare data with mnist
+    (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
+    X_train = np.where(X_train.reshape((X_train.shape[0], 28*28)) > 75, 1, 0) 
+    X_test = np.where(X_test.reshape((X_test.shape[0], 28*28)) > 75, 1, 0) 
+
+    best_params = grid_search(
+        X_train,
+        Y_train,
+        X_test,
+        Y_test,
+        num_clauses_values=[1600],
+        threshold_values=[5, 8, 10, 30, 50],
+        specificity_values=[3.0, 6.0, 7.5, 10.0, 15.0],
+        epochs=10,
+    )
+
+    print(best_params)
     """### Load IMDB data"""
     (X_train, Y_train), (X_test, Y_test) = prepare_imdb_data()
     print(f"X_train shape: {X_train.shape}, Y_train shape: {Y_train.shape}")
@@ -149,23 +166,6 @@ if __name__ == "__main__":
         threshold_values=[20, 45, 60, 100],
         specificity_values=[1.5, 3.0, 8.0],
         epochs=5,
-    )
-
-    print(best_params)
-    # Load and prepare data with mnist
-    (X_train, Y_train), (X_test, Y_test) = fashion_mnist.load_data()
-    X_train = np.where(X_train.reshape((X_train.shape[0], 28*28)) > 75, 1, 0) 
-    X_test = np.where(X_test.reshape((X_test.shape[0], 28*28)) > 75, 1, 0) 
-
-    best_params = grid_search(
-        X_train,
-        Y_train,
-        X_test,
-        Y_test,
-        num_clauses_values=[400],
-        threshold_values=[2, 5, 8, 10, 30, 50],
-        specificity_values=[1.0, 3.0, 7.5, 10.0, 15.0],
-        epochs=10,
     )
 
     print(best_params)

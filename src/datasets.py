@@ -1,3 +1,4 @@
+from tensorflow.keras.datasets import mnist, fashion_mnist
 import numpy as np
 import keras
 from sklearn.feature_selection import SelectKBest
@@ -6,6 +7,11 @@ from keras.datasets import imdb
 from pyTsetlinMachineParallel.tm import MultiClassTsetlinMachine
 from time import time
 from typing import Union, Tuple
+import h5py
+import os
+from abc import ABC, abstractmethod
+from torchvision.datasets import KMNIST
+from torchvision import transforms
 
 def prepare_imdb_data(
     max_ngram: int = 2,
@@ -114,3 +120,82 @@ def prepare_imdb_data(
     X_test = SKB.transform(X_test)
 
     return (X_train, Y_train), (X_test, Y_test)
+
+
+class DatasetTemplate(ABC):
+    def __init__(self, **kwargs):
+        self._load(**kwargs)
+    
+    @abstractmethod
+    def _load(self, **kwargs):
+        raise NotImplementedError
+
+    def get_data(self):
+        return self.X_train, self.Y_train, self.X_test, self.Y_test
+
+class IMDBDataset(DatasetTemplate):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def _load(self, **kwargs):
+        (self.X_train, self.Y_train), (self.X_test, self.Y_test) = prepare_imdb_data()
+
+class MNISTDataset(DatasetTemplate):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def _load(self, booleanize_threshold: int = 75):
+        (self.X_train, self.Y_train), (self.X_test, self.Y_test) = mnist.load_data()
+        
+        self.X_train = np.where(self.X_train > booleanize_threshold, 1, 0)
+        self.X_test = np.where(self.X_test > booleanize_threshold, 1, 0)
+
+        self.X_train = self.X_train.reshape(self.X_train.shape[0], 28*28)
+        self.X_test = self.X_test.reshape(self.X_test.shape[0], 28*28)
+        
+class FashionMNISTDataset(DatasetTemplate):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def _load(self, booleanize_threshold: int = 75):
+        (self.X_train, self.Y_train), (self.X_test, self.Y_test) = fashion_mnist.load_data()
+        
+        self.X_train = np.where(self.X_train > booleanize_threshold, 1, 0)
+        self.X_test = np.where(self.X_test > booleanize_threshold, 1, 0)
+
+        self.X_train = self.X_train.reshape(self.X_train.shape[0], 28*28)
+        self.X_test = self.X_test.reshape(self.X_test.shape[0], 28*28)
+
+class MNIST3DDataset(DatasetTemplate):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def _load(self, booleanize_threshold: float = 0.3):
+        with h5py.File(os.path.join("data", "mnist3d.h5"), "r") as hf:
+            self.X_train = hf["X_train"][:]
+            self.Y_train = hf["y_train"][:]    
+            self.X_test = hf["X_test"][:]  
+            self.Y_test = hf["y_test"][:]  
+        
+        self.X_train = np.where(self.X_train > booleanize_threshold, 1, 0)
+        self.X_test = np.where(self.X_test > booleanize_threshold, 1, 0)
+
+        self.X_train = self.X_train.reshape(self.X_train.shape[0], 16*16*16)
+        self.X_test = self.X_test.reshape(self.X_test.shape[0], 16*16*16)
+
+class KMNISTDataset(DatasetTemplate):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def _load(self, booleanize_threshold: float = 75):
+        train = KMNIST(root="data", download=True, train=True, transform=transforms.ToTensor())
+        test = KMNIST(root="data", download=True, train=False, transform=transforms.ToTensor())
+        self.X_train, self.Y_train = train.data.numpy(), train.targets.numpy()
+        self.X_test, self.Y_test = test.data.numpy(), test.targets.numpy()
+
+        self.X_train = self.X_train.reshape(self.X_train.shape[0], 28*28)
+        self.X_test = self.X_test.reshape(self.X_test.shape[0], 28*28)
+
+        self.X_train = np.where(self.X_train > booleanize_threshold, 1, 0)
+        self.X_test = np.where(self.X_test > booleanize_threshold, 1, 0)
+        
