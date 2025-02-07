@@ -311,7 +311,10 @@ def distilled_experiment(
         },
         "mutual_information": {
             "sklearn_teacher": mi_sklearn_dt,
-            "sklearn_student": mi_sklearn_ds
+            "sklearn_student": mi_sklearn_ds,
+            "info_teacher": info_teacher,
+            "info_student": info_student,
+            "info_distilled": info_distilled
         },
         "params": params,
         "experiment_name": experiment_name,
