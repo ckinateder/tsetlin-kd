@@ -5,6 +5,7 @@ from time import time
 from tqdm import tqdm, trange
 import h5py
 import os
+from imdb_data import prepare_imdb_data
 
 def grid_search(
     X_train,
@@ -106,6 +107,23 @@ def grid_search(
 
 
 if __name__ == "__main__":
+    """### Load IMDB data"""
+    (X_train, Y_train), (X_test, Y_test) = prepare_imdb_data()
+    print(f"X_train shape: {X_train.shape}, Y_train shape: {Y_train.shape}")
+    print(f"X_test shape: {X_test.shape}, Y_test shape: {Y_test.shape}")
+
+    best_params = grid_search(
+        X_train,
+        Y_train,
+        X_test,
+        Y_test,
+        num_clauses_values=[500],
+        threshold_values=[80*100],
+        specificity_values=[1.5, 3.0, 6.0],
+        epochs=5,
+    )
+    print(best_params)
+
     # Load and prepare data with mnist-3d
     """### Load MNIST-3D data"""
     with h5py.File(os.path.join("data", "mnist3d.h5"), "r") as hf:

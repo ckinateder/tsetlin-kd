@@ -11,7 +11,7 @@ import os
 import matplotlib.pyplot as plt
 from sklearn.metrics import mutual_info_score
 from util import save_json, load_pkl, save_pkl, make_dir, rm_file
-from imbd_data import prepare_imdb_data
+from imdb_data import prepare_imdb_data
 from datetime import datetime
 from tqdm import tqdm, trange
 import h5py
@@ -30,7 +30,7 @@ DEFAULTS = {
     "over": 0.95,
     "under": 0.05
 }
-def drop_over_under(X_train_transformed:np.ndarray, X_test_transformed:np.ndarray,
+def downsample_clauses(X_train_transformed:np.ndarray, X_test_transformed:np.ndarray,
                         over: float, under: float):
     """
     Transform the data from the teacher's output into a reduced space
@@ -52,8 +52,10 @@ def drop_over_under(X_train_transformed:np.ndarray, X_test_transformed:np.ndarra
 
     X_train_reduced = np.delete(X_train_transformed, clauses_to_drop, axis=1) # delete the clauses from the training data
     X_test_reduced = np.delete(X_test_transformed, clauses_to_drop, axis=1) # delete the clauses from the testing data
+
     num_clauses_dropped = len(clauses_to_drop)
     reduction_percentage = 100*(num_clauses_dropped/X_train_transformed.shape[1]) # calculate the percentage of clauses dropped
+
     print(f"Dropped {num_clauses_dropped} clauses from {X_train_transformed.shape[1]} clauses, {reduction_percentage:.2f}% reduction")
     
     return X_train_reduced, X_test_reduced, num_clauses_dropped
@@ -202,7 +204,7 @@ def distilled_experiment(
 
     X_train_transformed = teacher_tm.transform(X_train)
     X_test_transformed = teacher_tm.transform(X_test)
-    X_train_downsampled, X_test_downsampled, num_clauses_dropped = drop_over_under(X_train_transformed, X_test_transformed, over, under)
+    X_train_downsampled, X_test_downsampled, num_clauses_dropped = downsample_clauses(X_train_transformed, X_test_transformed, over, under)
     reduction_percentage = 100*(num_clauses_dropped/X_train_transformed.shape[1]) # calculate the percentage of clauses dropped
 
     start = time()
@@ -366,10 +368,10 @@ if __name__ == "__main__":
     #         { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 20 },
 
     mnist3d_experiments = [
-        { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "over": 0.95, "under": 0.05 },
-        { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "over": 0.95, "under": 0.05 },
-        { "teacher_num_clauses": 2000, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30 },
-        { "teacher_num_clauses": 1200, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30 },
+        { "teacher_num_clauses": 2000, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 20, "student_epochs": 60, "over": 0.95, "under": 0.05 },
+        { "teacher_num_clauses": 2000, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 20, "student_epochs": 60, "over": 0.90, "under": 0.10 },
+        { "teacher_num_clauses": 2000, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 20, "student_epochs": 60, "over": 0.85, "under": 0.15 },
+        { "teacher_num_clauses": 2000, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 20, "student_epochs": 60, "over": 0.80, "under": 0.20 },
     ]
 
     for i, params in enumerate(mnist3d_experiments):
