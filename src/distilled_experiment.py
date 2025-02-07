@@ -237,26 +237,16 @@ def distilled_experiment(
     # create an experiment directory
     make_dir(os.path.join(folderpath, experiment_id), overwrite=True)
 
-    # extract parameters
-    teacher_num_clauses = params["teacher_num_clauses"]
-    T = params["T"]
-    s = params["s"]
-    teacher_epochs = params["teacher_epochs"]
-    student_num_clauses = params["student_num_clauses"]
-    student_epochs = params["student_epochs"]
-    combined_epochs = params["combined_epochs"]
-    over = params["over"]
-    under = params["under"]
     teacher_model_path = os.path.join(folderpath, experiment_id, "teacher_checkpoint.pkl")
 
     # create models
     baseline_student_tm = MultiClassTsetlinMachine(
-        student_num_clauses, T, s, number_of_state_bits=params["number_of_state_bits"], weighted_clauses=params["weighted_clauses"])
+        params['student_num_clauses'], params['T'], params['s'], number_of_state_bits=params["number_of_state_bits"], weighted_clauses=params["weighted_clauses"])
     baseline_teacher_tm = MultiClassTsetlinMachine(
-        teacher_num_clauses, T, s, number_of_state_bits=params["number_of_state_bits"], weighted_clauses=params["weighted_clauses"])
+        params['teacher_num_clauses'], params['T'], params['s'], number_of_state_bits=params["number_of_state_bits"], weighted_clauses=params["weighted_clauses"])
     teacher_tm = None
     distilled_tm = MultiClassTsetlinMachine(
-        student_num_clauses, T, s, number_of_state_bits=params["number_of_state_bits"], weighted_clauses=params["weighted_clauses"])
+        params['student_num_clauses'], params['T'], params['s'], number_of_state_bits=params["number_of_state_bits"], weighted_clauses=params["weighted_clauses"])
 
     # create a results dataframe
     results = pd.DataFrame(columns=["acc_test_teacher", "acc_test_student", "acc_test_distilled", "time_train_teacher", "time_train_student",
@@ -266,24 +256,24 @@ def distilled_experiment(
     train_baselines(baseline_student_tm, baseline_teacher_tm, X_train, Y_train, X_test, Y_test, params, teacher_model_path, results)
 
     # copy first teacher_epochs results to distilled results
-    results.loc[:teacher_epochs, "acc_test_distilled"] = results.loc[:teacher_epochs, "acc_test_teacher"]
-    results.loc[:teacher_epochs, "time_train_distilled"] = results.loc[:teacher_epochs, "time_train_teacher"]
-    results.loc[:teacher_epochs, "time_test_distilled"] = results.loc[:teacher_epochs, "time_test_teacher"]
+    results.loc[:params['teacher_epochs'], "acc_test_distilled"] = results.loc[:params['teacher_epochs'], "acc_test_teacher"]
+    results.loc[:params['teacher_epochs'], "time_train_distilled"] = results.loc[:params['teacher_epochs'], "time_train_teacher"]
+    results.loc[:params['teacher_epochs'], "time_test_distilled"] = results.loc[:params['teacher_epochs'], "time_test_teacher"]
 
     # train distilled model
-    print(f"Loading teacher model from {teacher_model_path}, trained for {teacher_epochs} epochs")
+    print(f"Loading teacher model from {teacher_model_path}, trained for {params['teacher_epochs']} epochs")
     teacher_tm = load_pkl(teacher_model_path)
     rm_file(teacher_model_path) # remove the teacher model file. we don't need it anymore
 
     # downsample clauses
     X_train_transformed = teacher_tm.transform(X_train)
     X_test_transformed = teacher_tm.transform(X_test)
-    X_train_downsampled, X_test_downsampled, num_clauses_dropped = downsample_clauses(X_train_transformed, X_test_transformed, over, under)
+    X_train_downsampled, X_test_downsampled, num_clauses_dropped = downsample_clauses(X_train_transformed, X_test_transformed, params['over'], params['under'])
     reduction_percentage = 100*(num_clauses_dropped/X_train_transformed.shape[1]) # calculate the percentage of clauses dropped
 
     start = time()
-    print(f"Training distilled model for {student_epochs} epochs")
-    dt_pbar = tqdm(range(teacher_epochs, combined_epochs), desc="Distilled", leave=False, dynamic_ncols=True)
+    print(f"Training distilled model for {params['student_epochs']} epochs")
+    dt_pbar = tqdm(range(params['teacher_epochs'], params['combined_epochs']), desc="Distilled", leave=False, dynamic_ncols=True)
     for i in dt_pbar:
         result, train_time, test_time = train_step(distilled_tm, X_train_downsampled, Y_train, X_test_downsampled, Y_test)
         results.loc[i, "acc_test_distilled"], results.loc[i, "time_train_distilled"], results.loc[i, "time_test_distilled"] = result, train_time, test_time
@@ -313,9 +303,9 @@ def distilled_experiment(
     L_student = X_train.shape[1] # number of literals for the student
     L_teacher = X_train.shape[1] # number of literals for the teacher
     L_distilled = X_train_transformed.shape[1] # number of literals for the distilled
-    C_student = student_num_clauses # number of clauses for the student
-    C_teacher = teacher_num_clauses # number of clauses for the teacher
-    C_distilled = student_num_clauses # number of clauses for the distilled
+    C_student = params['student_num_clauses'] # number of clauses for the student
+    C_teacher = params['teacher_num_clauses'] # number of clauses for the teacher
+    C_distilled = params['student_num_clauses'] # number of clauses for the distilled
     
     info_teacher = L_teacher/C_teacher*np.log(L_teacher/C_teacher)
     info_student = L_student/C_student*np.log(L_student/C_student)
@@ -398,16 +388,6 @@ def distilled_experiment(
     plt.xticks(range(0, len(results), 5))
     plt.legend(loc="upper left")
     plt.grid(linestyle='dotted')
-    # add text of parameters for teacher_num_clauses, student_num_clauses, teacher_epochs, student_epochs, over, under
-    params_text = (
-        f"teacher_num_clauses: {teacher_num_clauses}\n"
-        f"student_num_clauses: {student_num_clauses}\n"
-        f"teacher_epochs: {teacher_epochs}\n"
-        f"student_epochs: {student_epochs}\n"
-        f"over: {over}\n"
-        f"under: {under}\n"
-    )
-    #plt.gcf().text(0.68, 0.14, params_text, fontsize=8, verticalalignment='bottom', bbox=dict(facecolor='white', alpha=1))
     plt.savefig(os.path.join(fpath, "accuracy.png"))
     plt.close()
 
