@@ -9,7 +9,12 @@ from util import save_json, load_pkl, save_pkl, make_dir, rm_file
 from datetime import datetime
 from tqdm import tqdm, trange
 from pyTsetlinMachineParallel.tm import MultiClassTsetlinMachine
-from datasets import DatasetTemplate
+from datasets import Dataset
+
+TEACHER_BASELINE_MODEL_PATH = "teacher_baseline.pkl"
+STUDENT_BASELINE_MODEL_PATH = "student_baseline.pkl"
+TEACHER_CHECKPOINT_PATH = "teacher_checkpoint.pkl"
+DISTILLED_MODEL_PATH = "distilled.pkl"
 
 DISTILLED_DEFAULTS = {
     "teacher_num_clauses": 400,
@@ -20,21 +25,11 @@ DISTILLED_DEFAULTS = {
     "student_epochs": 60,
     "weighted_clauses": True,
     "number_of_state_bits": 8,
-    "over": 0.95,
-    "under": 0.05
+    "over": 1,
+    "under": 0
 }
 
-DOWNSAMPLE_DEFAULTS = {
-    "teacher_num_clauses": 400,
-    "student_num_clauses": 200,
-    "T": 10,
-    "s": 5,
-    "teacher_epochs": 60,
-    "student_epochs": 60,
-    "weighted_clauses": True,
-    "number_of_state_bits": 8,
-    "downsamples": [(1, 0), (0.98, 0.02), (0.95, 0.05), (0.90, 0.10), (0.85, 0.15), (0.80, 0.20), (0.75, 0.25)]
-}
+DOWNSAMPLE_DEFAULTS = [(1, 0), (0.98, 0.02), (0.95, 0.05), (0.90, 0.10), (0.85, 0.15), (0.80, 0.20), (0.75, 0.25)]
 def downsample_clauses(X_train_transformed:np.ndarray, X_test_transformed:np.ndarray, over: float, under: float) -> tuple[np.ndarray, np.ndarray, int]:
     """
     Downsample clauses by removing those that are too active or too inactive.
@@ -130,85 +125,47 @@ def validate_params(params: dict, experiment_name: str) -> str:
     params["combined_epochs"] = params["teacher_epochs"] + params["student_epochs"]
     
     # generate experiment id
-    exid = f"{experiment_name}_tnc{params['teacher_num_clauses']}_snc{params['student_num_clauses']}_" \
+    exid = f"{experiment_name.replace(' ', '-')}_tnc{params['teacher_num_clauses']}_snc{params['student_num_clauses']}_" \
            f"T{params['T']}_s{params['s']}_te{params['teacher_epochs']}_se{params['student_epochs']}_" \
            f"over{params['over']}_under{params['under']}"
     
     return exid
 
-def train_baselines( baseline_student_tm: MultiClassTsetlinMachine, baseline_teacher_tm: MultiClassTsetlinMachine, 
-                    X_train: np.ndarray, Y_train: np.ndarray, X_test: np.ndarray, Y_test: np.ndarray, 
-                    params: dict, teacher_model_path: str, results: pd.DataFrame) -> dict:
-    """
-    Train the baseline student and teacher models.
-    Args:
-        baseline_student_tm (MultiClassTsetlinMachine): The baseline student TM model
-        baseline_teacher_tm (MultiClassTsetlinMachine): The baseline teacher TM model
-        X_train (np.ndarray): Training data features
-        Y_train (np.ndarray): Training data labels
-        X_test (np.ndarray): Test data features
-        Y_test (np.ndarray): Test data labels
-        params (dict): Parameters for the experiment
-        teacher_model_path (str): Path to save the teacher model at checkpoint
-        results (pd.DataFrame): DataFrame to store results
-
-    Returns:
-        dict: Updated results dictionary with baseline model metrics
-    """
-    # train baseline student
-    print(f"Creating a baseline student with {params['student_num_clauses']} clauses and training on original data")
-
-    start = time()
-    bs_pbar = tqdm(range(params['combined_epochs']), desc="Student", leave=False, dynamic_ncols=True)
-    for i in bs_pbar:
-        result, train_time, test_time = train_step(baseline_student_tm, X_train, Y_train, X_test, Y_test)
-        results.loc[i, "acc_test_student"], results.loc[i, "time_train_student"], results.loc[i, "time_test_student"] = result, train_time, test_time
-        tqdm.write(f'Epoch {i:>3}: Training time: {train_time:.2f} s, Testing time: {test_time:.2f} s, Test accuracy: {result:.2f}%')
-        bs_pbar.set_description(f"Student: {results['acc_test_student'].mean():.2f}%")
-
-    bs_pbar.close()
-    end = time()
-    print(f'Baseline student training time: {end-start:.2f} s')
-
-    # train baseline teacher
-    print(f"Creating a baseline teacher with {params['teacher_num_clauses']} clauses and training on original data")
-
-    start = time()
-    bt_pbar = tqdm(range(params['combined_epochs']), desc="Teacher", leave=False, dynamic_ncols=True)
-    for i in bt_pbar:
-        result, train_time, test_time = train_step(baseline_teacher_tm, X_train, Y_train, X_test, Y_test)
-        results.loc[i, "acc_test_teacher"], results.loc[i, "time_train_teacher"], results.loc[i, "time_test_teacher"] = result, train_time, test_time
-        tqdm.write(f'Epoch {i:>3}: Training time: {train_time:.2f} s, Testing time: {test_time:.2f} s, Test accuracy: {result:.2f}%')
-        bt_pbar.set_description(f"Teacher: {results['acc_test_teacher'].mean():.2f}%")
-
-        if i == params['teacher_epochs'] - 1:
-            save_pkl(baseline_teacher_tm, teacher_model_path)
-            tqdm.write(f"Saved teacher model to {teacher_model_path}")
-
-    bt_pbar.close()
-    end = time()
-    print(f'Baseline teacher training time: {end-start:.2f} s')
-
 
 def distilled_experiment(
-    dataset: DatasetTemplate,
-    experiment_name,
-    params=DISTILLED_DEFAULTS,
-    folderpath="experiments",
-    save_all=False
+    dataset: Dataset,
+    experiment_name: str,
+    params: dict = DISTILLED_DEFAULTS,
+    folderpath: str = "experiments",
+    save_all: bool = False,
+    baseline_teacher_model: MultiClassTsetlinMachine = None,
+    baseline_student_model: MultiClassTsetlinMachine = None,
+    pretrained_teacher_model: MultiClassTsetlinMachine = None,
 ) -> dict:
     """
     Run a distillation experiment comparing teacher, student, and distilled models.
 
+    Note on baseline_teacher_model and baseline_student_model:
+    This is really only for the downsample experiment where we only want to change the downsampling parameters.
+    This lets us use the same teacher and student models for all downsampling experiments.
+    Remember, the training looks like this:
+        student_model trained on original data for combined_epochs
+        teacher_model trained on original data for combined_epochs, but a checkpoint is saved after teacher_epochs
+        distilled_model trained on output of teacher_model (transformed and downsampled) for student_epochs
+
     Args:
-        X_train (np.ndarray): Training data features
-        Y_train (np.ndarray): Training data labels
-        X_test (np.ndarray): Test data features 
-        Y_test (np.ndarray): Test data labels
+        dataset (Dataset): The dataset to use for the experiment
         experiment_name (str): Name of the experiment
         params (dict, optional): Parameters for the experiment. Defaults to DISTILLED_DEFAULTS.
         folderpath (str, optional): Path to save experiment results. Defaults to "experiments".
-        save_all (bool, optional): Whether to save all models. Defaults to False.
+        save_all (bool, optional): Whether to save all models. Defaults to False. If True, saves 
+            all models to the experiment directory with paths teacher_baseline.pkl, student_baseline.pkl, distilled.pkl
+        baseline_teacher_model (MultiClassTsetlinMachine, optional): The baseline teacher model. Defaults to None.
+            If None, the teacher model is trained from scratch. Else, the teacher model is loaded from the given path.
+        baseline_student_model (MultiClassTsetlinMachine, optional): The baseline student model. Defaults to None.
+            If None, the student model is trained from scratch. Else, the student model is loaded from the given path.
+        pretrained_teacher_model (MultiClassTsetlinMachine, optional): The pretrained teacher model. Defaults to None.
+            If None, the teacher model is loaded from the given path. Else, the teacher model is trained from scratch.
 
     Returns:
         dict: Dictionary containing experiment results including:
@@ -236,24 +193,60 @@ def distilled_experiment(
 
     # create an experiment directory
     make_dir(os.path.join(folderpath, experiment_id), overwrite=True)
-
-    teacher_model_path = os.path.join(folderpath, experiment_id, "teacher_checkpoint.pkl")
+    teacher_model_path = os.path.join(folderpath, experiment_id, TEACHER_CHECKPOINT_PATH)
 
     # create models
     baseline_student_tm = MultiClassTsetlinMachine(
         params['student_num_clauses'], params['T'], params['s'], number_of_state_bits=params["number_of_state_bits"], weighted_clauses=params["weighted_clauses"])
     baseline_teacher_tm = MultiClassTsetlinMachine(
         params['teacher_num_clauses'], params['T'], params['s'], number_of_state_bits=params["number_of_state_bits"], weighted_clauses=params["weighted_clauses"])
-    teacher_tm = None
     distilled_tm = MultiClassTsetlinMachine(
         params['student_num_clauses'], params['T'], params['s'], number_of_state_bits=params["number_of_state_bits"], weighted_clauses=params["weighted_clauses"])
 
     # create a results dataframe
     results = pd.DataFrame(columns=["acc_test_teacher", "acc_test_student", "acc_test_distilled", "time_train_teacher", "time_train_student",
-                           "time_train_distilled", "time_test_teacher", "time_test_student", "time_test_distilled"], index=range(combined_epochs))
+                           "time_train_distilled", "time_test_teacher", "time_test_student", "time_test_distilled"], index=range(params['combined_epochs']))
 
     # train baselines
-    train_baselines(baseline_student_tm, baseline_teacher_tm, X_train, Y_train, X_test, Y_test, params, teacher_model_path, results)
+    # train baseline student
+    if isinstance(baseline_student_model, MultiClassTsetlinMachine):
+        print(f"Loading pretrained baseline student model")
+        baseline_student_tm = baseline_student_model
+    else:
+        print(f"Creating a baseline student with {params['student_num_clauses']} clauses and training on original data")
+        start = time()
+        bs_pbar = tqdm(range(params['combined_epochs']), desc="Student", leave=False, dynamic_ncols=True)
+        for i in bs_pbar:
+            result, train_time, test_time = train_step(baseline_student_tm, X_train, Y_train, X_test, Y_test)
+            results.loc[i, "acc_test_student"], results.loc[i, "time_train_student"], results.loc[i, "time_test_student"] = result, train_time, test_time
+            tqdm.write(f'Epoch {i:>3}: Training time: {train_time:.2f} s, Testing time: {test_time:.2f} s, Test accuracy: {result:.2f}%')
+            bs_pbar.set_description(f"Student: {results['acc_test_student'].mean():.2f}%")
+
+        bs_pbar.close()
+        end = time()
+        print(f'Baseline student training time: {end-start:.2f} s')
+
+    # train baseline teacher
+    if isinstance(baseline_teacher_model, MultiClassTsetlinMachine):
+        print(f"Loading pretrained baseline teacher model")
+        baseline_teacher_tm = baseline_teacher_model
+    else:
+        print(f"Creating a baseline teacher with {params['teacher_num_clauses']} clauses and training on original data")
+        start = time()
+        bt_pbar = tqdm(range(params['combined_epochs']), desc="Teacher", leave=False, dynamic_ncols=True)
+        for i in bt_pbar:
+            result, train_time, test_time = train_step(baseline_teacher_tm, X_train, Y_train, X_test, Y_test)
+            results.loc[i, "acc_test_teacher"], results.loc[i, "time_train_teacher"], results.loc[i, "time_test_teacher"] = result, train_time, test_time
+            tqdm.write(f'Epoch {i:>3}: Training time: {train_time:.2f} s, Testing time: {test_time:.2f} s, Test accuracy: {result:.2f}%')
+            bt_pbar.set_description(f"Teacher: {results['acc_test_teacher'].mean():.2f}%")
+
+            if i == params['teacher_epochs'] - 1:
+                save_pkl(baseline_teacher_tm, teacher_model_path)
+                tqdm.write(f"Saved teacher model to {teacher_model_path}")
+
+        bt_pbar.close()
+        end = time()
+        print(f'Baseline teacher training time: {end-start:.2f} s')
 
     # copy first teacher_epochs results to distilled results
     results.loc[:params['teacher_epochs'], "acc_test_distilled"] = results.loc[:params['teacher_epochs'], "acc_test_teacher"]
@@ -261,9 +254,14 @@ def distilled_experiment(
     results.loc[:params['teacher_epochs'], "time_test_distilled"] = results.loc[:params['teacher_epochs'], "time_test_teacher"]
 
     # train distilled model
-    print(f"Loading teacher model from {teacher_model_path}, trained for {params['teacher_epochs']} epochs")
-    teacher_tm = load_pkl(teacher_model_path)
-    rm_file(teacher_model_path) # remove the teacher model file. we don't need it anymore
+    if isinstance(pretrained_teacher_model, MultiClassTsetlinMachine):
+        print(f"Loading pretrained teacher model")
+        teacher_tm = pretrained_teacher_model
+    else:
+        print(f"Loading teacher model from {teacher_model_path}, trained for {params['teacher_epochs']} epochs")
+        teacher_tm = load_pkl(teacher_model_path)
+        if not save_all:
+            rm_file(teacher_model_path) # remove the teacher model file. we don't need it anymore
 
     # downsample clauses
     X_train_transformed = teacher_tm.transform(X_train)
@@ -373,9 +371,9 @@ def distilled_experiment(
     save_json(output, os.path.join(fpath, "output.json"))
     results.to_csv(os.path.join(fpath, "results.csv"))
     if save_all:
-        save_pkl(baseline_teacher_tm, os.path.join(folderpath, experiment_id, "teacher_baseline.pkl"))
-        save_pkl(baseline_student_tm, os.path.join(folderpath, experiment_id, "student_baseline.pkl"))
-        save_pkl(distilled_tm, os.path.join(folderpath, experiment_id, "distilled.pkl"))
+        save_pkl(baseline_teacher_tm, os.path.join(folderpath, experiment_id, TEACHER_BASELINE_MODEL_PATH))
+        save_pkl(baseline_student_tm, os.path.join(folderpath, experiment_id, STUDENT_BASELINE_MODEL_PATH))
+        save_pkl(distilled_tm, os.path.join(folderpath, experiment_id, DISTILLED_MODEL_PATH))
 
     # plot results and save
     plt.figure(figsize=(8,6), dpi=300)
@@ -395,11 +393,11 @@ def distilled_experiment(
 
 
 def downsample_experiment(
-    dataset: DatasetTemplate,
+    dataset: Dataset,
     experiment_name,
-    params=DOWNSAMPLE_DEFAULTS,
+    params=DISTILLED_DEFAULTS,
+    downsamples=[(0.98, 0.02), (0.95, 0.05), (0.90, 0.10), (0.85, 0.15), (0.80, 0.20), (0.75, 0.25)],
     folderpath="experiments",
-    save_all=False
 ) -> dict:
     """
     Run a downsample experiment comparing teacher, student, and distilled models.
@@ -422,3 +420,36 @@ def downsample_experiment(
             - Number of clauses dropped during distillation
             - Total experiment time
     """
+    print(f"Running Downsample Experiment {experiment_name} with params: {params}")
+
+    params["over"] = 1
+    params["under"] = 0
+
+    subfolderpath = os.path.join(folderpath, experiment_name)
+    make_dir(subfolderpath, overwrite=True)
+    
+    # train distilled model first, fully raw, NO baseline models and NO downsampling
+    print("Training distilled model first, fully raw, NO baseline models and NO downsampling")
+    output, results = distilled_experiment(dataset, "ds", params, subfolderpath, save_all=True)
+    original_id = output["id"]
+
+    # now go load each model
+    print("Loading baseline models and pretrained teacher model...")
+    teacher_model = load_pkl(os.path.join(subfolderpath, original_id, TEACHER_BASELINE_MODEL_PATH))
+    student_model = load_pkl(os.path.join(subfolderpath, original_id, STUDENT_BASELINE_MODEL_PATH))
+    pretrained_teacher_model = load_pkl(os.path.join(subfolderpath, original_id, TEACHER_CHECKPOINT_PATH))
+    print("Done loading baseline models and pretrained teacher model")
+
+    # then train distilled models with downsampling
+    print("Training distilled models with downsampling...")
+    for (over, under) in downsamples:
+        print(f"Training distilled model with downsampling {over} over and {under} under")
+        params["over"] = over
+        params["under"] = under
+        output, results = distilled_experiment(dataset, "ds", params, subfolderpath, 
+                                               baseline_teacher_model=teacher_model, 
+                                               baseline_student_model=student_model, 
+                                               pretrained_teacher_model=pretrained_teacher_model, 
+                                               save_all=False)
+        print(output)
+    print("Done training distilled models with downsampling")

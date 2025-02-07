@@ -3,7 +3,7 @@ from torchvision.datasets import KMNIST
 from datasets import prepare_imdb_data
 import h5py
 import numpy as np
-from distilled_experiment import distilled_experiment
+from distilled_experiment import distilled_experiment, downsample_experiment
 from torchvision import transforms
 import os
 from datasets import MNISTDataset, MNIST3DDataset, FashionMNISTDataset, KMNISTDataset
@@ -12,6 +12,14 @@ from datasets import MNISTDataset, MNIST3DDataset, FashionMNISTDataset, KMNISTDa
 np.random.seed(0)
 
 if __name__ == "__main__":
+    # run downsample experiment
+    mnist_dataset = MNISTDataset()
+
+    mnist_ds_experiment = { 
+        "teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 40 }
+    downsample_experiment(mnist_dataset, "MNIST-Downsample", params=mnist_ds_experiment, 
+                          downsamples=[(0.98, 0.02), (0.95, 0.05), (0.90, 0.10), (0.85, 0.15), (0.80, 0.20), (0.75, 0.25)])
+        
     """### Load MNIST data"""
     mnist_dataset = MNISTDataset()
 

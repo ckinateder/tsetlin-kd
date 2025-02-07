@@ -122,7 +122,7 @@ def prepare_imdb_data(
     return (X_train, Y_train), (X_test, Y_test)
 
 
-class DatasetTemplate(ABC):
+class Dataset(ABC):
     def __init__(self, **kwargs):
         self._load(**kwargs)
     
@@ -143,14 +143,14 @@ class DatasetTemplate(ABC):
         assert len(self.X_train) == len(self.Y_train), "Training data length mismatch"
         assert len(self.X_test) == len(self.Y_test), "Testing data length mismatch"
 
-class IMDBDataset(DatasetTemplate):
+class IMDBDataset(Dataset):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
     def _load(self, **kwargs):
         (self.X_train, self.Y_train), (self.X_test, self.Y_test) = prepare_imdb_data()
 
-class MNISTDataset(DatasetTemplate):
+class MNISTDataset(Dataset):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -163,7 +163,7 @@ class MNISTDataset(DatasetTemplate):
         self.X_train = self.X_train.reshape(self.X_train.shape[0], 28*28)
         self.X_test = self.X_test.reshape(self.X_test.shape[0], 28*28)
         
-class FashionMNISTDataset(DatasetTemplate):
+class FashionMNISTDataset(Dataset):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -176,7 +176,7 @@ class FashionMNISTDataset(DatasetTemplate):
         self.X_train = self.X_train.reshape(self.X_train.shape[0], 28*28)
         self.X_test = self.X_test.reshape(self.X_test.shape[0], 28*28)
 
-class MNIST3DDataset(DatasetTemplate):
+class MNIST3DDataset(Dataset):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -193,7 +193,7 @@ class MNIST3DDataset(DatasetTemplate):
         self.X_train = self.X_train.reshape(self.X_train.shape[0], 16*16*16)
         self.X_test = self.X_test.reshape(self.X_test.shape[0], 16*16*16)
 
-class KMNISTDataset(DatasetTemplate):
+class KMNISTDataset(Dataset):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
