@@ -17,6 +17,7 @@ if __name__ == "__main__":
     X_train, Y_train, X_test, Y_test = mnist_dataset.get_data()
 
     # best T and s for MNIST are T=30,s=7.5
+    # { "teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 40, "over": 1, "under": 0 },
     mnist_experiments = [        
         { "teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 40, "over": 1, "under": 0 },
         { "teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 40, "over": 0.98, "under": 0.02 },

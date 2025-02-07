@@ -250,37 +250,11 @@ def distilled_experiment(
         save_pkl(distilled_tm, os.path.join(folderpath, experiment_id, "distilled.pkl"))
 
     # calculate information transfer
-
     # now get final prediction probabilities for teacher and distilled
     # class sums are arranged by [sums] x samples, so shape is (num_samples, num_classes)
     student_prediction, student_class_sums = baseline_distilled_tm.predict_class_sums_2d(X_test)
     teacher_prediction, teacher_class_sums = baseline_teacher_tm.predict_class_sums_2d(X_test)
     distilled_prediction, distilled_class_sums = baseline_distilled_tm.predict_class_sums_2d(X_test)
-
-    # class sums are arranged by [sums] x samples
-    # output an array here by sample and then avg
-    #print(student_class_sums)
-    student_probs = np.apply_along_axis(softmax, 1, student_class_sums)
-    teacher_probs = np.apply_along_axis(softmax, 1, teacher_class_sums)
-    distilled_probs = np.apply_along_axis(softmax, 1, distilled_class_sums)
-    #print(student_probs)
-
-    # calculate entropy of each sample, into a 1D array
-    # entropy is calculated by -sum(p(x)log(p(x))) for each class for each sample
-    student_entropy = np.apply_along_axis(entropy, 1, student_probs)
-    teacher_entropy = np.apply_along_axis(entropy, 1, teacher_probs)
-    distilled_entropy = np.apply_along_axis(entropy, 1, distilled_probs)
-
-    # calculate kl divergence between teacher and distilled
-    #kl_sd = np.apply_along_axis(kl_divergence, 1, student_probs, distilled_probs)
-    #kl_st = np.apply_along_axis(kl_divergence, 1, student_probs, teacher_probs)
-
-    # assuming independence, calculate joint probabilities
-    joint_probabilities = joint_probs(teacher_probs, distilled_probs)
-
-    # calculate mutual information
-    #mi = mutual_information(teacher_probs, distilled_probs, joint_probabilities)
-    #print(f"Mutual information: {mi:.4f}")
 
     # calculate mutual information using sklearn
     mi_sklearn_dt = mutual_info_score(teacher_prediction, distilled_prediction)
@@ -288,6 +262,22 @@ def distilled_experiment(
 
     print(f"Mutual information (distilled <-> teacher) (sklearn): {mi_sklearn_dt:.4f}")
     print(f"Mutual information (distilled <-> student) (sklearn): {mi_sklearn_ds:.4f}")
+
+    # compute our mutual information with L/C*log(L/C)
+    L_student = X_train.shape[1] # number of literals for the student
+    L_teacher = X_train.shape[1] # number of literals for the teacher
+    L_distilled = X_train_transformed.shape[1] # number of literals for the distilled
+    C_student = student_num_clauses # number of clauses for the student
+    C_teacher = teacher_num_clauses # number of clauses for the teacher
+    C_distilled = student_num_clauses # number of clauses for the distilled
+    
+    info_teacher = L_teacher/C_teacher*np.log(L_teacher/C_teacher)
+    info_student = L_student/C_student*np.log(L_student/C_student)
+    info_distilled = L_distilled/C_distilled*np.log(L_distilled/C_distilled)
+
+    print(f"Information (distilled <-> teacher) (L/C*log(L/C)): {info_teacher:.4f}")
+    print(f"Information (distilled <-> student) (L/C*log(L/C)): {info_student:.4f}")
+    print(f"Information (distilled <-> distilled) (L/C*log(L/C)): {info_distilled:.4f}")
 
     # compute averages for accuracy
     avg_acc_test_teacher = results["acc_test_teacher"].mean()
