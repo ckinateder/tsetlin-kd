@@ -10,7 +10,7 @@ from datetime import datetime
 from tqdm import tqdm, trange
 from pyTsetlinMachineParallel.tm import MultiClassTsetlinMachine
 
-DEFAULTS = {
+DISTILLED_DEFAULTS = {
     "teacher_num_clauses": 400,
     "student_num_clauses": 200,
     "T": 10,
@@ -21,6 +21,18 @@ DEFAULTS = {
     "number_of_state_bits": 8,
     "over": 0.95,
     "under": 0.05
+}
+
+DOWNSAMPLE_DEFAULTS = {
+    "teacher_num_clauses": 400,
+    "student_num_clauses": 200,
+    "T": 10,
+    "s": 5,
+    "teacher_epochs": 60,
+    "student_epochs": 60,
+    "weighted_clauses": True,
+    "number_of_state_bits": 8,
+    "downsamples": [(1, 0), (0.98, 0.02), (0.95, 0.05), (0.90, 0.10), (0.85, 0.15), (0.80, 0.20), (0.75, 0.25)]
 }
 def downsample_clauses(X_train_transformed:np.ndarray, X_test_transformed:np.ndarray, over: float, under: float) -> tuple[np.ndarray, np.ndarray, int]:
     """
@@ -92,10 +104,39 @@ def train_step(model, X_train, Y_train, X_test, Y_test) -> tuple[float, float, f
 
     return result, stop_training-start_training, stop_testing-start_testing
 
+def validate_params(params: dict, experiment_name: str) -> str:
+    """
+    Validate the parameters for the experiment.
+
+    Args:
+        params (dict): Parameters for the experiment
+        experiment_name (str): Name of the experiment
+
+    Returns:
+        str: id of the experiment
+    """
+    # check that the parameters are valid
+    assert "teacher_num_clauses" in params, "Teacher number of clauses not specified"
+    assert "T" in params, "T not specified"
+    assert "s" in params, "s not specified"
+    assert "teacher_epochs" in params, "Teacher epochs not specified"
+    assert "student_num_clauses" in params, "Student number of clauses not specified"
+    assert "student_epochs" in params, "Student epochs not specified"
+    assert params["teacher_num_clauses"] > params["student_num_clauses"], "Student clauses should be less than teacher clauses"
+    assert params["over"] >= 0 and params["over"] <= 1, "Over should be a float between 0 and 1"
+    assert params["under"] >= 0 and params["under"] <= 1, "Under should be a float between 0 and 1"
+
+    params["combined_epochs"] = params["teacher_epochs"] + params["student_epochs"]
+    
+    # generate experiment id
+    return f"{experiment_name}_tnc{params['teacher_num_clauses']}_snc{params['student_num_clauses']}_" \
+           f"T{params['T']}_s{params['s']}_te{params['teacher_epochs']}_se{params['student_epochs']}_" \
+           f"over{params['over']}_under{params['under']}"
+
 def distilled_experiment(
     X_train, Y_train, X_test, Y_test,
     experiment_name,
-    params=DEFAULTS,
+    params=DISTILLED_DEFAULTS,
     folderpath="experiments",
     save_all=False
 ) -> dict:
@@ -108,7 +149,7 @@ def distilled_experiment(
         X_test (np.ndarray): Test data features 
         Y_test (np.ndarray): Test data labels
         experiment_name (str): Name of the experiment
-        params (dict, optional): Parameters for the experiment. Defaults to DEFAULTS.
+        params (dict, optional): Parameters for the experiment. Defaults to DISTILLED_DEFAULTS.
         folderpath (str, optional): Path to save experiment results. Defaults to "experiments".
         save_all (bool, optional): Whether to save all models. Defaults to False.
 
@@ -120,29 +161,23 @@ def distilled_experiment(
             - Total experiment time
     """
     exp_start = time()
+
     # fill in missing parameters with defaults
-    for key, value in DEFAULTS.items():
+    for key, value in DISTILLED_DEFAULTS.items():
         if key not in params:
             print(f"Parameter {key} not specified, using default value {value}")
             params[key] = value
 
-    print(f"Running {experiment_name}")
-    print(params)
+    print(f"Running {experiment_name} with params: {params}")
 
     # check that the data is valid
     assert len(X_train) == len(Y_train), "Training data length mismatch"
     assert len(X_test) == len(Y_test), "Testing data length mismatch"
+    experiment_id = validate_params(params, experiment_name)
+    print(f"Experiment ID: {experiment_id}")
 
-    # check that the parameters are valid
-    assert "teacher_num_clauses" in params, "Teacher number of clauses not specified"
-    assert "T" in params, "T not specified"
-    assert "s" in params, "s not specified"
-    assert "teacher_epochs" in params, "Teacher epochs not specified"
-    assert "student_num_clauses" in params, "Student number of clauses not specified"
-    assert "student_epochs" in params, "Student epochs not specified"
-    assert params["teacher_num_clauses"] > params["student_num_clauses"], "Student clauses should be less than teacher clauses"
-    assert params["over"] >= 0 and params["over"] <= 1, "Over should be a float between 0 and 1"
-    assert params["under"] >= 0 and params["under"] <= 1, "Under should be a float between 0 and 1"
+    # create an experiment directory
+    make_dir(os.path.join(folderpath, experiment_id), overwrite=True)
 
     # extract parameters
     teacher_num_clauses = params["teacher_num_clauses"]
@@ -151,16 +186,9 @@ def distilled_experiment(
     teacher_epochs = params["teacher_epochs"]
     student_num_clauses = params["student_num_clauses"]
     student_epochs = params["student_epochs"]
-    combined_epochs = teacher_epochs + student_epochs
+    combined_epochs = params["combined_epochs"]
     over = params["over"]
     under = params["under"]
-
-    # generate experiment id
-    experiment_id = f"{experiment_name}_tnc{teacher_num_clauses}_snc{student_num_clauses}_T{T}_s{s}_te{teacher_epochs}_se{student_epochs}_over{over}_under{under}"
-    print(f"Experiment ID: {experiment_id}")
-
-    # create an experiment directory
-    make_dir(os.path.join(folderpath, experiment_id), overwrite=True)
 
     # create a results dataframe
     results = pd.DataFrame(columns=["acc_test_teacher", "acc_test_student", "acc_test_distilled", "time_train_teacher", "time_train_student",
@@ -353,3 +381,33 @@ def distilled_experiment(
     plt.close()
 
     return output, results
+
+
+def downsample_experiment(
+    X_train, Y_train, X_test, Y_test,
+    experiment_name,
+    params=DOWNSAMPLE_DEFAULTS,
+    folderpath="experiments",
+    save_all=False
+) -> dict:
+    """
+    Run a downsample experiment comparing teacher, student, and distilled models.
+
+
+    Args:
+        X_train (np.ndarray): Training data features
+        Y_train (np.ndarray): Training data labels
+        X_test (np.ndarray): Test data features 
+        Y_test (np.ndarray): Test data labels
+        experiment_name (str): Name of the experiment
+        params (dict, optional): Parameters for the experiment. Defaults to DOWNSAMPLE_DEFAULTS.
+        folderpath (str, optional): Path to save experiment results. Defaults to "experiments".
+        save_all (bool, optional): Whether to save all models. Defaults to False.
+
+    Returns:
+        dict: Dictionary containing experiment results including:
+            - Teacher, student and distilled model accuracies
+            - Training and testing times
+            - Number of clauses dropped during distillation
+            - Total experiment time
+    """
