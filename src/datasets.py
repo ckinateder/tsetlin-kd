@@ -133,6 +133,16 @@ class DatasetTemplate(ABC):
     def get_data(self):
         return self.X_train, self.Y_train, self.X_test, self.Y_test
 
+    def get_data_train(self):
+        return self.X_train, self.Y_train
+
+    def get_data_test(self):
+        return self.X_test, self.Y_test
+
+    def validate_lengths(self):
+        assert len(self.X_train) == len(self.Y_train), "Training data length mismatch"
+        assert len(self.X_test) == len(self.Y_test), "Testing data length mismatch"
+
 class IMDBDataset(DatasetTemplate):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -146,7 +156,7 @@ class MNISTDataset(DatasetTemplate):
 
     def _load(self, booleanize_threshold: int = 75):
         (self.X_train, self.Y_train), (self.X_test, self.Y_test) = mnist.load_data()
-        
+
         self.X_train = np.where(self.X_train > booleanize_threshold, 1, 0)
         self.X_test = np.where(self.X_test > booleanize_threshold, 1, 0)
 

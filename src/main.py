@@ -14,7 +14,6 @@ np.random.seed(0)
 if __name__ == "__main__":
     """### Load MNIST data"""
     mnist_dataset = MNISTDataset()
-    X_train, Y_train, X_test, Y_test = mnist_dataset.get_data()
 
     # best T and s for MNIST are T=30,s=7.5
     # { "teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 40, "over": 1, "under": 0 },
@@ -30,7 +29,7 @@ if __name__ == "__main__":
 
     for i, params in enumerate(mnist_experiments):
         mnist_results, df = distilled_experiment(
-            X_train, Y_train, X_test, Y_test, f"MNIST", params)
+            mnist_dataset, f"MNIST", params)
         print(mnist_results)
         
     """### Load MNIST-3D data"""
@@ -50,7 +49,7 @@ if __name__ == "__main__":
 
     for i, params in enumerate(mnist3d_experiments):
         mnist3d_results, df = distilled_experiment(
-            X_train, Y_train, X_test, Y_test, f"MNIST-3D", params)
+            mnist3d_dataset, f"MNIST-3D", params)
         print(mnist3d_results)
 
 
@@ -68,7 +67,7 @@ if __name__ == "__main__":
     
     for i, params in enumerate(kmnist_experiments):
         kmnist_results, df = distilled_experiment(
-            X_train, Y_train, X_test, Y_test, f"KMNIST", params)
+            kmnist_dataset, f"KMNIST", params)
         print(kmnist_results)
 
 
