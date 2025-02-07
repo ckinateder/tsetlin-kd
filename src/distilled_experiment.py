@@ -22,10 +22,25 @@ DEFAULTS = {
     "over": 0.95,
     "under": 0.05
 }
-def downsample_clauses(X_train_transformed:np.ndarray, X_test_transformed:np.ndarray,
-                        over: float, under: float):
+def downsample_clauses(X_train_transformed:np.ndarray, X_test_transformed:np.ndarray, over: float, under: float) -> tuple[np.ndarray, np.ndarray, int]:
     """
-    Transform the data from the teacher's output into a reduced space
+    Downsample clauses by removing those that are too active or too inactive.
+
+    This function performs clause pruning by removing clauses that activate too frequently or too rarely.
+    Clauses that are too active (above over threshold) are considered too specific and not generalizable.
+    Clauses that are too inactive (below under threshold) are considered too general and not specific enough.
+
+    Args:
+        X_train_transformed (np.ndarray): Training data transformed by teacher TM's clauses
+        X_test_transformed (np.ndarray): Test data transformed by teacher TM's clauses  
+        over (float): Upper threshold for clause activation frequency (e.g. 0.95)
+        under (float): Lower threshold for clause activation frequency (e.g. 0.05)
+
+    Returns:
+        tuple: Contains:
+            - X_train_reduced (np.ndarray): Training data with pruned clauses removed
+            - X_test_reduced (np.ndarray): Test data with pruned clauses removed
+            - num_clauses_dropped (int): Number of clauses that were pruned
     """
     # drop clauses that are too active or too inactive
     # this is a form of data mining where we seek out the clauses that are most informative
@@ -85,11 +100,24 @@ def distilled_experiment(
     save_all=False
 ) -> dict:
     """
-    Train a baseline student model with teacher_epochs + student_epochs epochs
-    Train a baseline teacher model with teacher_epochs + student_epochs epochs
-    Rebuild the teacher model and train it with teacher_epochs epochs
-    Train the student model with student_epochs epochs on the teacher's output
+    Run a distillation experiment comparing teacher, student, and distilled models.
 
+    Args:
+        X_train (np.ndarray): Training data features
+        Y_train (np.ndarray): Training data labels
+        X_test (np.ndarray): Test data features 
+        Y_test (np.ndarray): Test data labels
+        experiment_name (str): Name of the experiment
+        params (dict, optional): Parameters for the experiment. Defaults to DEFAULTS.
+        folderpath (str, optional): Path to save experiment results. Defaults to "experiments".
+        save_all (bool, optional): Whether to save all models. Defaults to False.
+
+    Returns:
+        dict: Dictionary containing experiment results including:
+            - Teacher, student and distilled model accuracies
+            - Training and testing times
+            - Number of clauses dropped during distillation
+            - Total experiment time
     """
     exp_start = time()
     # fill in missing parameters with defaults
@@ -138,15 +166,13 @@ def distilled_experiment(
     results = pd.DataFrame(columns=["acc_test_teacher", "acc_test_student", "acc_test_distilled", "time_train_teacher", "time_train_student",
                            "time_train_distilled", "time_test_teacher", "time_test_student", "time_test_distilled"], index=range(combined_epochs))
 
-    """### Train the baseline student model"""
+    # train baseline student
     print(
         f"Creating a baseline student with {student_num_clauses} clauses and training on original data")
     baseline_distilled_tm = MultiClassTsetlinMachine(
         student_num_clauses, T, s, number_of_state_bits=params["number_of_state_bits"], weighted_clauses=params["weighted_clauses"])
 
     start = time()
-
-    # train baseline student
     bs_pbar = tqdm(range(combined_epochs), desc="Student", leave=False, dynamic_ncols=True)
     for i in bs_pbar:
         result, train_time, test_time = train_step(baseline_distilled_tm, X_train, Y_train, X_test, Y_test)
