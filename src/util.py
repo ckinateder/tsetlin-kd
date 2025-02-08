@@ -23,7 +23,8 @@ def make_dir(dir_path, overwrite=False):
         if overwrite:
             shutil.rmtree(dir_path)
         else:
-            raise FileExistsError(f"Directory {dir_path} already exists")
+            print(f"Directory {dir_path} already exists, skipping")
+            return
     os.makedirs(dir_path)
 
 def rm_file(file_path):

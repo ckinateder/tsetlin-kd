@@ -18,21 +18,16 @@ if __name__ == "__main__":
     mnist_ds_experiment = { 
         "teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 40 }
     downsample_experiment(mnist_dataset, "MNIST-Downsample", params=mnist_ds_experiment, 
-                          downsamples=[(0.98, 0.02), (0.95, 0.05), (0.90, 0.10), (0.85, 0.15), (0.80, 0.20), (0.75, 0.25)])
-        
+                          downsamples=[0.05, 0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.30, 0.40], overwrite=False)
+    
+    exit()
     """### Load MNIST data"""
     mnist_dataset = MNISTDataset()
 
     # best T and s for MNIST are T=30,s=7.5
     # { "teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 40, "over": 1, "under": 0 },
     mnist_experiments = [        
-        { "teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 40, "over": 1, "under": 0 },
-        { "teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 40, "over": 0.98, "under": 0.02 },
-        { "teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 40, "over": 0.95, "under": 0.05 },
-        { "teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 40, "over": 0.90, "under": 0.10 },
-        { "teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 40, "over": 0.85, "under": 0.15 },
-        { "teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 40, "over": 0.80, "under": 0.20 },
-        { "teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 40, "over": 0.75, "under": 0.25 },
+        { "teacher_num_clauses": 2000, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 40, "downsample": 0.02 },
     ]
 
     for i, params in enumerate(mnist_experiments):
@@ -42,17 +37,16 @@ if __name__ == "__main__":
         
     """### Load MNIST-3D data"""
     mnist3d_dataset = MNIST3DDataset()
-    X_train, Y_train, X_test, Y_test = mnist3d_dataset.get_data()
+    mnist3d_ds_experiment = { 
+        "teacher_num_clauses": 2000, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "downsample": 0.02 }
+    downsample_experiment(mnist3d_dataset, "MNIST3D-Downsample", params=mnist3d_ds_experiment, 
+                          downsamples=[0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45])
 
     # so far, best params are: num_clauses=750, threshold=50, specificity=3.0
     #         { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 20 },
 
     mnist3d_experiments = [
-        { "teacher_num_clauses": 2000, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "over": 0.95, "under": 0.05 },
-        { "teacher_num_clauses": 2000, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "over": 0.90, "under": 0.10 },
-        { "teacher_num_clauses": 2000, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "over": 0.85, "under": 0.15 },
-        { "teacher_num_clauses": 2000, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "over": 0.80, "under": 0.20 },
-        { "teacher_num_clauses": 2000, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "over": 0.75, "under": 0.25 },
+        { "teacher_num_clauses": 2000, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "downsample": 0.02 },
     ]
 
     for i, params in enumerate(mnist3d_experiments):
@@ -61,16 +55,15 @@ if __name__ == "__main__":
         print(mnist3d_results)
 
 
-
     """### Load KMNIST data"""
     kmnist_dataset = KMNISTDataset()
     X_train, Y_train, X_test, Y_test = kmnist_dataset.get_data()
 
     kmnist_experiments = [
-        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30, "over": 0.95, "under": 0.05 },
-        { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30, "over": 0.95, "under": 0.05 },
-        { "teacher_num_clauses": 1600, "student_num_clauses": 400, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30, "over": 0.95, "under": 0.05 },
-        { "teacher_num_clauses": 2400, "student_num_clauses": 400, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30, "over": 0.95, "under": 0.05 },
+        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30, "downsample": 0.02 },
+        { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30, "downsample": 0.02 },
+        { "teacher_num_clauses": 1600, "student_num_clauses": 400, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30, "downsample": 0.02 },
+        { "teacher_num_clauses": 2400, "student_num_clauses": 400, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30, "downsample": 0.02 },
     ]
     
     for i, params in enumerate(kmnist_experiments):
@@ -134,8 +127,8 @@ if __name__ == "__main__":
     #         { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 20 },
 
     mnist3d_experiments = [
-        { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "over": 0.95, "under": 0.05 },
-        { "teacher_num_clauses": 2000, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30 },
+        { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "downsample": 0.02 },
+        { "teacher_num_clauses": 2000, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "downsample": 0.02 },
         { "teacher_num_clauses": 1200, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30 },
     ]
 

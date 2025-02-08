@@ -5,16 +5,30 @@ import pandas as pd
 import os
 import matplotlib.pyplot as plt
 from sklearn.metrics import mutual_info_score
-from util import save_json, load_pkl, save_pkl, make_dir, rm_file
+from util import save_json, load_pkl, save_pkl, make_dir, rm_file, load_json
 from datetime import datetime
 from tqdm import tqdm, trange
 from pyTsetlinMachineParallel.tm import MultiClassTsetlinMachine
 from datasets import Dataset
+from scipy.interpolate import interp1d
 
 TEACHER_BASELINE_MODEL_PATH = "teacher_baseline.pkl"
 STUDENT_BASELINE_MODEL_PATH = "student_baseline.pkl"
 TEACHER_CHECKPOINT_PATH = "teacher_checkpoint.pkl"
 DISTILLED_MODEL_PATH = "distilled.pkl"
+
+ACC_TEST_TEACHER = "acc_test_teacher"
+ACC_TEST_STUDENT = "acc_test_student"
+ACC_TEST_DISTILLED = "acc_test_distilled"
+TIME_TRAIN_TEACHER = "time_train_teacher"
+TIME_TRAIN_STUDENT = "time_train_student"
+TIME_TRAIN_DISTILLED = "time_train_distilled"
+TIME_TEST_TEACHER = "time_test_teacher"
+TIME_TEST_STUDENT = "time_test_student"
+TIME_TEST_DISTILLED = "time_test_distilled"
+
+RESULTS_COLUMNS = [ACC_TEST_TEACHER, ACC_TEST_STUDENT, ACC_TEST_DISTILLED, TIME_TRAIN_TEACHER, TIME_TRAIN_STUDENT,
+                           TIME_TRAIN_DISTILLED, TIME_TEST_TEACHER, TIME_TEST_STUDENT, TIME_TEST_DISTILLED]
 
 DISTILLED_DEFAULTS = {
     "teacher_num_clauses": 400,
@@ -25,12 +39,11 @@ DISTILLED_DEFAULTS = {
     "student_epochs": 60,
     "weighted_clauses": True,
     "number_of_state_bits": 8,
-    "over": 1,
-    "under": 0
+    "downsample": 0
 }
 
-DOWNSAMPLE_DEFAULTS = [(1, 0), (0.98, 0.02), (0.95, 0.05), (0.90, 0.10), (0.85, 0.15), (0.80, 0.20), (0.75, 0.25)]
-def downsample_clauses(X_train_transformed:np.ndarray, X_test_transformed:np.ndarray, over: float, under: float) -> tuple[np.ndarray, np.ndarray, int]:
+DOWNSAMPLE_DEFAULTS = [0.05, 0.10, 0.15, 0.20, 0.25]
+def downsample_clauses(X_train_transformed:np.ndarray, X_test_transformed:np.ndarray, downsample: float, symmetric: bool = False) -> tuple[np.ndarray, np.ndarray, int]:
     """
     Downsample clauses by removing those that are too active or too inactive.
 
@@ -41,8 +54,9 @@ def downsample_clauses(X_train_transformed:np.ndarray, X_test_transformed:np.nda
     Args:
         X_train_transformed (np.ndarray): Training data transformed by teacher TM's clauses
         X_test_transformed (np.ndarray): Test data transformed by teacher TM's clauses  
-        over (float): Upper threshold for clause activation frequency (e.g. 0.95)
-        under (float): Lower threshold for clause activation frequency (e.g. 0.05)
+        downsample (float): Drop clauses that are activated in (1 - downsample)*100% of the time. 
+            If downsample is 0.05, then any clause that is activated in 95% of the time is dropped.
+        symmetric (bool): If True, drop clauses that are inactive in (1 - downsample)*100% of the time.
 
     Returns:
         tuple: Contains:
@@ -53,17 +67,19 @@ def downsample_clauses(X_train_transformed:np.ndarray, X_test_transformed:np.nda
     # drop clauses that are too active or too inactive
     # this is a form of data mining where we seek out the clauses that are most informative
     # we drop the clauses that are too active because they are too specific and not generalizable
-    # we drop the clauses that are too inactive because they are too general and not specific enough
     # this should reduce the number of clauses and make the student learn faster
-    # this works pretty well with over = 0.95 and under = 0.0
-
+    # this works pretty well with downsample = 0.05
+    assert downsample >= 0 and downsample < 1, "Downsample should be a float between 0 and 1"
     sums = np.sum(X_train_transformed, axis=0) # shape is (num_classes*num_clauses)
     normalized_sums = sums / X_train_transformed.shape[0] # get the sum of each clause over all samples divided by the number of samples
 
     # find where to drop
-    over_clauses = np.where(normalized_sums > over)[0]
-    under_clauses = np.where(normalized_sums < under)[0]
-    clauses_to_drop = np.concatenate([over_clauses, under_clauses])
+    over_clauses = np.where(normalized_sums > (1 - downsample))[0]
+    under_clauses = np.where(normalized_sums < downsample)[0]
+    if symmetric:
+        clauses_to_drop = np.concatenate([over_clauses, under_clauses])
+    else:
+        clauses_to_drop = over_clauses
 
     X_train_reduced = np.delete(X_train_transformed, clauses_to_drop, axis=1) # delete the clauses from the training data
     X_test_reduced = np.delete(X_test_transformed, clauses_to_drop, axis=1) # delete the clauses from the testing data
@@ -119,15 +135,14 @@ def validate_params(params: dict, experiment_name: str) -> str:
     assert "student_num_clauses" in params, "Student number of clauses not specified"
     assert "student_epochs" in params, "Student epochs not specified"
     assert params["teacher_num_clauses"] > params["student_num_clauses"], "Student clauses should be less than teacher clauses"
-    assert params["over"] >= 0 and params["over"] <= 1, "Over should be a float between 0 and 1"
-    assert params["under"] >= 0 and params["under"] <= 1, "Under should be a float between 0 and 1"
+    assert params["downsample"] >= 0 and params["downsample"] <= 1, "Downsample should be a float between 0 and 1"
 
     params["combined_epochs"] = params["teacher_epochs"] + params["student_epochs"]
     
     # generate experiment id
     exid = f"{experiment_name.replace(' ', '-')}_tnc{params['teacher_num_clauses']}_snc{params['student_num_clauses']}_" \
            f"T{params['T']}_s{params['s']}_te{params['teacher_epochs']}_se{params['student_epochs']}_" \
-           f"over{params['over']}_under{params['under']}"
+           f"downsample{params['downsample']}"
     
     return exid
 
@@ -138,9 +153,11 @@ def distilled_experiment(
     params: dict = DISTILLED_DEFAULTS,
     folderpath: str = "experiments",
     save_all: bool = False,
+    overwrite: bool = True,
     baseline_teacher_model: MultiClassTsetlinMachine = None,
     baseline_student_model: MultiClassTsetlinMachine = None,
     pretrained_teacher_model: MultiClassTsetlinMachine = None,
+    prefilled_results: pd.DataFrame = None,
 ) -> dict:
     """
     Run a distillation experiment comparing teacher, student, and distilled models.
@@ -192,6 +209,17 @@ def distilled_experiment(
     print(f"Experiment ID: {experiment_id}")
 
     # create an experiment directory
+    if not overwrite and os.path.exists(os.path.join(folderpath, experiment_id)):
+        # check if output.json, results.csv, and accuracy.png exist
+        if os.path.exists(os.path.join(folderpath, experiment_id, "output.json")) and \
+           os.path.exists(os.path.join(folderpath, experiment_id, "results.csv")) and \
+           os.path.exists(os.path.join(folderpath, experiment_id, "accuracy.png")):
+            print(f"Experiment {experiment_id} already exists, skipping")
+            # load the results
+            results = pd.read_csv(os.path.join(folderpath, experiment_id, "results.csv"))
+            output = load_json(os.path.join(folderpath, experiment_id, "output.json"))
+            return output, results
+
     make_dir(os.path.join(folderpath, experiment_id), overwrite=True)
     teacher_model_path = os.path.join(folderpath, experiment_id, TEACHER_CHECKPOINT_PATH)
 
@@ -204,8 +232,18 @@ def distilled_experiment(
         params['student_num_clauses'], params['T'], params['s'], number_of_state_bits=params["number_of_state_bits"], weighted_clauses=params["weighted_clauses"])
 
     # create a results dataframe
-    results = pd.DataFrame(columns=["acc_test_teacher", "acc_test_student", "acc_test_distilled", "time_train_teacher", "time_train_student",
-                           "time_train_distilled", "time_test_teacher", "time_test_student", "time_test_distilled"], index=range(params['combined_epochs']))
+    if prefilled_results is None: 
+        results = pd.DataFrame(columns=RESULTS_COLUMNS, index=range(params['combined_epochs']))
+    else:
+        results = prefilled_results
+        assert results.columns.tolist() == RESULTS_COLUMNS, "Prefilled results columns do not match expected columns"
+        assert results.index._range == range(params['combined_epochs']), "Prefilled results index does not match expected index"
+
+        # delete entries after params['teacher_epochs'] for 'acc_test_distilled', 'time_train_distilled', 'time_test_distilled' columns
+        results.loc[params['teacher_epochs']:, ACC_TEST_DISTILLED] = np.nan
+        results.loc[params['teacher_epochs']:, TIME_TRAIN_DISTILLED] = np.nan 
+        results.loc[params['teacher_epochs']:, TIME_TEST_DISTILLED] = np.nan
+        print(f"Prefilled results loaded")
 
     # train baselines
     # train baseline student
@@ -218,9 +256,9 @@ def distilled_experiment(
         bs_pbar = tqdm(range(params['combined_epochs']), desc="Student", leave=False, dynamic_ncols=True)
         for i in bs_pbar:
             result, train_time, test_time = train_step(baseline_student_tm, X_train, Y_train, X_test, Y_test)
-            results.loc[i, "acc_test_student"], results.loc[i, "time_train_student"], results.loc[i, "time_test_student"] = result, train_time, test_time
+            results.loc[i, ACC_TEST_STUDENT], results.loc[i, TIME_TRAIN_STUDENT], results.loc[i, TIME_TEST_STUDENT] = result, train_time, test_time
             tqdm.write(f'Epoch {i:>3}: Training time: {train_time:.2f} s, Testing time: {test_time:.2f} s, Test accuracy: {result:.2f}%')
-            bs_pbar.set_description(f"Student: {results['acc_test_student'].mean():.2f}%")
+            bs_pbar.set_description(f"Student: {results[ACC_TEST_STUDENT].mean():.2f}%")
 
         bs_pbar.close()
         end = time()
@@ -236,9 +274,9 @@ def distilled_experiment(
         bt_pbar = tqdm(range(params['combined_epochs']), desc="Teacher", leave=False, dynamic_ncols=True)
         for i in bt_pbar:
             result, train_time, test_time = train_step(baseline_teacher_tm, X_train, Y_train, X_test, Y_test)
-            results.loc[i, "acc_test_teacher"], results.loc[i, "time_train_teacher"], results.loc[i, "time_test_teacher"] = result, train_time, test_time
+            results.loc[i, ACC_TEST_TEACHER], results.loc[i, TIME_TRAIN_TEACHER], results.loc[i, TIME_TEST_TEACHER] = result, train_time, test_time
             tqdm.write(f'Epoch {i:>3}: Training time: {train_time:.2f} s, Testing time: {test_time:.2f} s, Test accuracy: {result:.2f}%')
-            bt_pbar.set_description(f"Teacher: {results['acc_test_teacher'].mean():.2f}%")
+            bt_pbar.set_description(f"Teacher: {results[ACC_TEST_TEACHER].mean():.2f}%")
 
             if i == params['teacher_epochs'] - 1:
                 save_pkl(baseline_teacher_tm, teacher_model_path)
@@ -249,9 +287,9 @@ def distilled_experiment(
         print(f'Baseline teacher training time: {end-start:.2f} s')
 
     # copy first teacher_epochs results to distilled results
-    results.loc[:params['teacher_epochs'], "acc_test_distilled"] = results.loc[:params['teacher_epochs'], "acc_test_teacher"]
-    results.loc[:params['teacher_epochs'], "time_train_distilled"] = results.loc[:params['teacher_epochs'], "time_train_teacher"]
-    results.loc[:params['teacher_epochs'], "time_test_distilled"] = results.loc[:params['teacher_epochs'], "time_test_teacher"]
+    results.loc[:params['teacher_epochs'], ACC_TEST_DISTILLED] = results.loc[:params['teacher_epochs'], ACC_TEST_TEACHER]
+    results.loc[:params['teacher_epochs'], TIME_TRAIN_DISTILLED] = results.loc[:params['teacher_epochs'], TIME_TRAIN_TEACHER]
+    results.loc[:params['teacher_epochs'], TIME_TEST_DISTILLED] = results.loc[:params['teacher_epochs'], TIME_TEST_TEACHER]
 
     # train distilled model
     if isinstance(pretrained_teacher_model, MultiClassTsetlinMachine):
@@ -266,18 +304,21 @@ def distilled_experiment(
     # downsample clauses
     X_train_transformed = teacher_tm.transform(X_train)
     X_test_transformed = teacher_tm.transform(X_test)
-    X_train_downsampled, X_test_downsampled, num_clauses_dropped = downsample_clauses(X_train_transformed, X_test_transformed, params['over'], params['under'])
+    X_train_downsampled, X_test_downsampled, num_clauses_dropped = downsample_clauses(X_train_transformed, X_test_transformed, params['downsample'], symmetric=True)
     reduction_percentage = 100*(num_clauses_dropped/X_train_transformed.shape[1]) # calculate the percentage of clauses dropped
+    if num_clauses_dropped == X_train_transformed.shape[1]:
+        print(f"Every clause was dropped, skipping distillation")
+        return None, results
 
     start = time()
     print(f"Training distilled model for {params['student_epochs']} epochs")
     dt_pbar = tqdm(range(params['teacher_epochs'], params['combined_epochs']), desc="Distilled", leave=False, dynamic_ncols=True)
     for i in dt_pbar:
         result, train_time, test_time = train_step(distilled_tm, X_train_downsampled, Y_train, X_test_downsampled, Y_test)
-        results.loc[i, "acc_test_distilled"], results.loc[i, "time_train_distilled"], results.loc[i, "time_test_distilled"] = result, train_time, test_time
+        results.loc[i, ACC_TEST_DISTILLED], results.loc[i, TIME_TRAIN_DISTILLED], results.loc[i, TIME_TEST_DISTILLED] = result, train_time, test_time
 
         tqdm.write(f'Epoch {i:>3}: Training time: {train_time:.2f} s, Testing time: {test_time:.2f} s, Test accuracy: {result:.2f}%')
-        dt_pbar.set_description(f"Distilled: {results['acc_test_distilled'].mean():.2f}%")
+        dt_pbar.set_description(f"Distilled: {results[ACC_TEST_DISTILLED].mean():.2f}%")
 
     dt_pbar.close()
     end = time()
@@ -313,41 +354,25 @@ def distilled_experiment(
     print(f"Information (distilled <-> student) (L/C*log(L/C)): {info_student:.4f}")
     print(f"Information (distilled <-> distilled) (L/C*log(L/C)): {info_distilled:.4f}")
 
-    # compute averages for accuracy
-    avg_acc_test_teacher = results["acc_test_teacher"].mean()
-    std_acc_test_teacher = results["acc_test_teacher"].std()
-    avg_acc_test_student = results["acc_test_student"].mean()
-    std_acc_test_student = results["acc_test_student"].std()
-    avg_acc_test_distilled = results["acc_test_distilled"].mean()
-    std_acc_test_distilled = results["acc_test_distilled"].std()
-
-    # compute sum of training times
-    sum_time_train_teacher = results["time_train_teacher"].sum()
-    sum_time_train_student = results["time_train_student"].sum()
-    sum_time_train_distilled = results["time_train_distilled"].sum()
-    sum_time_test_teacher = results["time_test_teacher"].sum()
-    sum_time_test_student = results["time_test_student"].sum()
-    sum_time_test_distilled = results["time_test_distilled"].sum()
-
     total_time = time() - exp_start
 
     output = {
         "analysis": {
-            "avg_acc_test_teacher": avg_acc_test_teacher,
-            "std_acc_test_teacher": std_acc_test_teacher,
-            "avg_acc_test_student": avg_acc_test_student,
-            "std_acc_test_student": std_acc_test_student,
-            "avg_acc_test_distilled": avg_acc_test_distilled,
-            "std_acc_test_distilled": std_acc_test_distilled,
-            "final_acc_test_distilled": results["acc_test_distilled"].iloc[-1],
-            "final_acc_test_teacher": results["acc_test_teacher"].iloc[-1],
-            "final_acc_test_student": results["acc_test_student"].iloc[-1],
-            "sum_time_train_teacher": sum_time_train_teacher,
-            "sum_time_train_student": sum_time_train_student,
-            "sum_time_train_distilled": sum_time_train_distilled,
-            "sum_time_test_teacher": sum_time_test_teacher,
-            "sum_time_test_student": sum_time_test_student,
-            "sum_time_test_distilled": sum_time_test_distilled,
+            "avg_acc_test_teacher": results[ACC_TEST_TEACHER].mean(),
+            "std_acc_test_teacher": results[ACC_TEST_TEACHER].std(),
+            "avg_acc_test_student": results[ACC_TEST_STUDENT].mean(),
+            "std_acc_test_student": results[ACC_TEST_STUDENT].std(),
+            "avg_acc_test_distilled": results[ACC_TEST_DISTILLED].mean(),
+            "std_acc_test_distilled": results[ACC_TEST_DISTILLED].std(),
+            "final_acc_test_distilled": results[ACC_TEST_DISTILLED].iloc[-1],
+            "final_acc_test_teacher": results[ACC_TEST_TEACHER].iloc[-1],
+            "final_acc_test_student": results[ACC_TEST_STUDENT].iloc[-1],
+            "sum_time_train_teacher": results[TIME_TRAIN_TEACHER].sum(),
+            "sum_time_train_student": results[TIME_TRAIN_STUDENT].sum(),
+            "sum_time_train_distilled": results[TIME_TRAIN_DISTILLED].sum(),
+            "sum_time_test_teacher": results[TIME_TEST_TEACHER].sum(),
+            "sum_time_test_student": results[TIME_TEST_STUDENT].sum(),
+            "sum_time_test_distilled": results[TIME_TEST_DISTILLED].sum(),
             "total_time": total_time,
             "num_clauses_dropped": num_clauses_dropped,
             "num_clauses_dropped_percentage": reduction_percentage
@@ -377,11 +402,11 @@ def distilled_experiment(
 
     # plot results and save
     plt.figure(figsize=(8,6), dpi=300)
-    plt.plot(results["acc_test_distilled"], label="Distilled")
-    plt.plot(results["acc_test_teacher"], label="Teacher", alpha=0.5)
-    plt.plot(results["acc_test_student"], label="Student", alpha=0.5)
+    plt.plot(results[ACC_TEST_DISTILLED], label="Distilled")
+    plt.plot(results[ACC_TEST_TEACHER], label="Teacher", alpha=0.5)
+    plt.plot(results[ACC_TEST_STUDENT], label="Student", alpha=0.5)
     plt.xlabel("Epoch")
-    plt.ylabel("Accuracy")
+    plt.ylabel("Accuracy (%)")
     #plt.title(f"Testing Accuracy of {experiment_name} Over {combined_epochs} Epochs")
     plt.xticks(range(0, len(results), 5))
     plt.legend(loc="upper left")
@@ -396,8 +421,9 @@ def downsample_experiment(
     dataset: Dataset,
     experiment_name,
     params=DISTILLED_DEFAULTS,
-    downsamples=[(0.98, 0.02), (0.95, 0.05), (0.90, 0.10), (0.85, 0.15), (0.80, 0.20), (0.75, 0.25)],
+    downsamples=DOWNSAMPLE_DEFAULTS,
     folderpath="experiments",
+    overwrite: bool = True,
 ) -> dict:
     """
     Run a downsample experiment comparing teacher, student, and distilled models.
@@ -422,16 +448,14 @@ def downsample_experiment(
     """
     print(f"Running Downsample Experiment {experiment_name} with params: {params}")
 
-    params["over"] = 1
-    params["under"] = 0
-
     subfolderpath = os.path.join(folderpath, experiment_name)
-    make_dir(subfolderpath, overwrite=True)
+    make_dir(subfolderpath, overwrite=overwrite)
     
     # train distilled model first, fully raw, NO baseline models and NO downsampling
+    params["downsample"] = 0
     print("Training distilled model first, fully raw, NO baseline models and NO downsampling")
-    output, results = distilled_experiment(dataset, "ds", params, subfolderpath, save_all=True)
-    original_id = output["id"]
+    original_output, original_results_pd = distilled_experiment(dataset, "ds", params, subfolderpath, save_all=True)
+    original_id = original_output["id"]
 
     # now go load each model
     print("Loading baseline models and pretrained teacher model...")
@@ -441,15 +465,62 @@ def downsample_experiment(
     print("Done loading baseline models and pretrained teacher model")
 
     # then train distilled models with downsampling
+    all_outputs = []
     print("Training distilled models with downsampling...")
-    for (over, under) in downsamples:
-        print(f"Training distilled model with downsampling {over} over and {under} under")
-        params["over"] = over
-        params["under"] = under
-        output, results = distilled_experiment(dataset, "ds", params, subfolderpath, 
+    ended_at = -1
+    for i, downsample in enumerate(downsamples):
+        print(f"Training distilled model with downsampling {downsample}")
+        params["downsample"] = downsample
+        output_dict, _ = distilled_experiment(dataset, "ds", params, subfolderpath, 
                                                baseline_teacher_model=teacher_model, 
                                                baseline_student_model=student_model, 
                                                pretrained_teacher_model=pretrained_teacher_model, 
+                                               prefilled_results=original_results_pd,
+                                               overwrite=overwrite,
                                                save_all=False)
-        print(output)
+        if output_dict is not None:
+            all_outputs.append(output_dict)
+        else:
+            print(f"Skipping downsample {downsample} because it failed")
+            ended_at = i
+            break
+    
+    if ended_at != -1:
+        downsamples = downsamples[:ended_at]
+        all_outputs = all_outputs[:ended_at]
+
     print("Done training distilled models with downsampling")
+
+    # now plot the results. Y value is average accuracy of distilled model plotted over different downsamples
+    # add a line for baseline teacher and baseline student
+    plt.figure(figsize=(8,6), dpi=300)
+    baseline_student_acc = original_output["analysis"]["avg_acc_test_student"]
+    baseline_teacher_acc = original_output["analysis"]["avg_acc_test_teacher"]
+    all_final_acc = np.array([output["analysis"]["final_acc_test_distilled"] for output in all_outputs])
+    all_avg_acc = np.array([output["analysis"]["avg_acc_test_distilled"] for output in all_outputs])
+    downsamples = np.array(downsamples)
+
+    interpolator_final = interp1d(downsamples, all_final_acc, kind = "cubic")
+    interpolator_avg = interp1d(downsamples, all_avg_acc, kind = "cubic")
+    
+    # Plotting the Graph
+    X_=np.linspace(downsamples.min(), downsamples.max(), 500)
+    interp_final_acc = interpolator_final(X_)
+    interp_avg_acc = interpolator_avg(X_)
+    
+    plt.axhline(y=baseline_teacher_acc, linestyle=':', color="orange", alpha=0.7, label="Avg Teacher")
+    plt.axhline(y=baseline_student_acc, linestyle=':', color="green", alpha=0.7, label="Avg Student")
+
+    #plt.plot(X_, interp_final_acc, label="Final Distilled")
+    #plt.plot(X_, interp_avg_acc, label="Avg Distilled")
+
+    plt.plot(downsamples, all_final_acc, marker='o', label="Final Distilled")
+    #plt.plot(downsamples, all_avg_acc, marker='o', label="Avg Distilled")
+    plt.xlabel("Downsample Rate")
+    plt.ylabel("Accuracy (%)")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.savefig(os.path.join(subfolderpath, "downsample_results.png"))
+    plt.close()
+
+    return all_outputs
