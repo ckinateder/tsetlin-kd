@@ -43,7 +43,7 @@ DISTILLED_DEFAULTS = {
 }
 
 DOWNSAMPLE_DEFAULTS = [0.05, 0.10, 0.15, 0.20, 0.25]
-def downsample_clauses(X_train_transformed:np.ndarray, X_test_transformed:np.ndarray, downsample: float, symmetric: bool = False) -> tuple[np.ndarray, np.ndarray, int]:
+def downsample_clauses(X_train_transformed:np.ndarray, X_test_transformed:np.ndarray, downsample: float) -> tuple[np.ndarray, np.ndarray, int]:
     """
     Downsample clauses by removing those that are too active or too inactive.
 
@@ -56,7 +56,6 @@ def downsample_clauses(X_train_transformed:np.ndarray, X_test_transformed:np.nda
         X_test_transformed (np.ndarray): Test data transformed by teacher TM's clauses  
         downsample (float): Drop clauses that are activated in (1 - downsample)*100% of the time. 
             If downsample is 0.05, then any clause that is activated in 95% of the time is dropped.
-        symmetric (bool): If True, drop clauses that are inactive in (1 - downsample)*100% of the time.
 
     Returns:
         tuple: Contains:
@@ -74,13 +73,7 @@ def downsample_clauses(X_train_transformed:np.ndarray, X_test_transformed:np.nda
     normalized_sums = sums / X_train_transformed.shape[0] # get the sum of each clause over all samples divided by the number of samples
 
     # find where to drop
-    over_clauses = np.where(normalized_sums > (1 - downsample))[0]
-    under_clauses = np.where(normalized_sums < downsample)[0]
-    if symmetric:
-        clauses_to_drop = np.concatenate([over_clauses, under_clauses])
-    else:
-        clauses_to_drop = over_clauses
-
+    clauses_to_drop = np.where(normalized_sums > (1 - downsample))[0]
     X_train_reduced = np.delete(X_train_transformed, clauses_to_drop, axis=1) # delete the clauses from the training data
     X_test_reduced = np.delete(X_test_transformed, clauses_to_drop, axis=1) # delete the clauses from the testing data
 
@@ -373,6 +366,12 @@ def distilled_experiment(
             "sum_time_test_teacher": results[TIME_TEST_TEACHER].sum(),
             "sum_time_test_student": results[TIME_TEST_STUDENT].sum(),
             "sum_time_test_distilled": results[TIME_TEST_DISTILLED].sum(),
+            "avg_time_train_teacher": results[TIME_TRAIN_TEACHER].mean(),
+            "avg_time_train_student": results[TIME_TRAIN_STUDENT].mean(),
+            "avg_time_train_distilled": results[TIME_TRAIN_DISTILLED].mean(),
+            "avg_time_test_teacher": results[TIME_TEST_TEACHER].mean(),
+            "avg_time_test_student": results[TIME_TEST_STUDENT].mean(),
+            "avg_time_test_distilled": results[TIME_TEST_DISTILLED].mean(),
             "total_time": total_time,
             "num_clauses_dropped": num_clauses_dropped,
             "num_clauses_dropped_percentage": reduction_percentage
@@ -494,7 +493,8 @@ def downsample_experiment(
     # get original accuracy
     original_final_acc = original_output["analysis"]["final_acc_test_distilled"]
     original_avg_acc = original_output["analysis"]["avg_acc_test_distilled"]
-    original_training_time = original_output["analysis"]["sum_time_train_distilled"]
+    original_total_training_time = original_output["analysis"]["sum_time_train_distilled"]
+    original_avg_training_time = original_output["analysis"]["avg_time_train_distilled"]
     original_reduction_percentage = 0
 
     # now plot the results. Y value is average accuracy of distilled model plotted over different downsamples
@@ -503,13 +503,16 @@ def downsample_experiment(
     baseline_teacher_avg_acc = original_output["analysis"]["avg_acc_test_teacher"]
     baseline_student_final_acc = original_output["analysis"]["final_acc_test_student"]
     baseline_teacher_final_acc = original_output["analysis"]["final_acc_test_teacher"]
-    baseline_student_training_time = original_output["analysis"]["sum_time_train_student"]
-    baseline_teacher_training_time = original_output["analysis"]["sum_time_train_teacher"]
+    baseline_student_total_training_time = original_output["analysis"]["sum_time_train_student"]
+    baseline_teacher_total_training_time = original_output["analysis"]["sum_time_train_teacher"]
+    baseline_student_avg_training_time = original_output["analysis"]["avg_time_train_student"]
+    baseline_teacher_avg_training_time = original_output["analysis"]["avg_time_train_teacher"]
 
     # get final and average distilled accuracy
     all_final_acc = np.array([original_final_acc] + [output["analysis"]["final_acc_test_distilled"] for output in all_outputs])
     all_avg_acc = np.array([original_avg_acc] + [output["analysis"]["avg_acc_test_distilled"] for output in all_outputs])
-    all_training_time = np.array([original_training_time] + [output["analysis"]["sum_time_train_distilled"] for output in all_outputs])
+    all_total_training_time = np.array([original_total_training_time] + [output["analysis"]["sum_time_train_distilled"] for output in all_outputs])
+    all_avg_training_time = np.array([original_avg_training_time] + [output["analysis"]["avg_time_train_distilled"] for output in all_outputs])
     all_reduction_percentage = np.array([original_reduction_percentage] + [output["analysis"]["num_clauses_dropped_percentage"] for output in all_outputs])
     downsamples = np.array(downsamples)
 
@@ -517,11 +520,9 @@ def downsample_experiment(
     plt.figure(figsize=(8,6), dpi=300)
     plt.axhline(y=baseline_teacher_final_acc, linestyle=':', color="orange", alpha=0.7, label="Final Teacher Accuracy")
     plt.axhline(y=baseline_student_final_acc, linestyle=':', color="green", alpha=0.7, label="Final Student Accuracy")
-    #plt.plot(X_, interp_final_acc, label="Final Distilled")
-    #plt.plot(X_, interp_avg_acc, label="Avg Distilled")
     plt.plot(downsamples, all_final_acc, marker='o', label="Final Distilled Accuracy")
     plt.xlabel("Downsample Rate")
-    plt.ylabel("Accuracy (%)")
+    plt.ylabel("Final Accuracy (%)")
     plt.legend(loc="upper right")
     plt.grid(True, alpha=0.3)
     plt.savefig(os.path.join(subfolderpath, "downsample_results_final_acc.png"))
@@ -533,29 +534,41 @@ def downsample_experiment(
     plt.axhline(y=baseline_student_avg_acc, linestyle=':', color="green", alpha=0.7, label="Avg Student Accuracy")
     plt.plot(downsamples, all_avg_acc, marker='o', label="Avg Distilled Accuracy")
     plt.xlabel("Downsample Rate")
-    plt.ylabel("Accuracy (%)")
+    plt.ylabel("Average Accuracy (%)")
     plt.legend(loc="upper right")
     plt.grid(True, alpha=0.3)
     plt.savefig(os.path.join(subfolderpath, "downsample_results_avg_acc.png"))
     plt.close()
 
-    # plot training time
+    # plot total training time
     plt.figure(figsize=(8,6), dpi=300)
-    plt.axhline(y=baseline_teacher_training_time, linestyle=':', color="orange", alpha=0.7, label="Training Time Teacher")
-    plt.axhline(y=baseline_student_training_time, linestyle=':', color="green", alpha=0.7, label="Training Time Student")
-    plt.plot(downsamples, all_training_time, marker='o', label="Training Time Distilled")
+    plt.axhline(y=baseline_teacher_total_training_time, linestyle=':', color="orange", alpha=0.7, label="Training Time Teacher")
+    plt.axhline(y=baseline_student_total_training_time, linestyle=':', color="green", alpha=0.7, label="Training Time Student")
+    plt.plot(downsamples, all_total_training_time, marker='o', label="Training Time Distilled")
     plt.xlabel("Downsample Rate")
-    plt.ylabel("Training Time (s)")
+    plt.ylabel("Total Training Time (s)")
     plt.legend(loc="upper right")
     plt.grid(True, alpha=0.3)
-    plt.savefig(os.path.join(subfolderpath, "downsample_results_training_time.png"))
+    plt.savefig(os.path.join(subfolderpath, "downsample_results_total_training_time.png"))
+    plt.close()
+
+    # plot average training time
+    plt.figure(figsize=(8,6), dpi=300)
+    plt.axhline(y=baseline_teacher_avg_training_time, linestyle=':', color="orange", alpha=0.7, label="Training Time Teacher")
+    plt.axhline(y=baseline_student_avg_training_time, linestyle=':', color="green", alpha=0.7, label="Training Time Student")
+    plt.plot(downsamples, all_avg_training_time, marker='o', label="Training Time Distilled")
+    plt.xlabel("Downsample Rate")
+    plt.ylabel("Average (Per Epoch) Training Time (s)")
+    plt.legend(loc="upper right")
+    plt.grid(True, alpha=0.3)
+    plt.savefig(os.path.join(subfolderpath, "downsample_results_avg_training_time.png"))
     plt.close()
 
     # plot reduction percentage
     plt.figure(figsize=(8,6), dpi=300)
-    plt.plot(downsamples, all_reduction_percentage, marker='o', label="Reduction Percentage")
+    plt.plot(downsamples, all_reduction_percentage, marker='o', label="Clause Reduction Percentage")
     plt.xlabel("Downsample Rate")
-    plt.ylabel("Reduction Percentage (%)")
+    plt.ylabel("Clause Reduction Percentage (%)")
     plt.legend(loc="upper left")
     plt.grid(True, alpha=0.3)
     plt.savefig(os.path.join(subfolderpath, "downsample_results_reduction_percentage.png"))
