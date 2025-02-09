@@ -446,14 +446,14 @@ def downsample_experiment(
             - Number of clauses dropped during distillation
             - Total experiment time
     """
-    print(f"Running Downsample Experiment {experiment_name} with params: {params}")
-
-    subfolderpath = os.path.join(folderpath, experiment_name)
-    make_dir(subfolderpath, overwrite=overwrite)
+    downsamples = sorted(list(set(downsamples))) # remove duplicates and sort
+    print(f"Running Downsample Experiment {experiment_name} with params: {params} and downsamples: {downsamples}")
     
     # train distilled model first, fully raw, NO baseline models and NO downsampling
     params["downsample"] = 0
     print("Training distilled model first, fully raw, NO baseline models and NO downsampling")
+    subfolderpath = os.path.join(folderpath, experiment_name)
+    make_dir(subfolderpath, overwrite=overwrite)
     original_output, original_results_pd = distilled_experiment(dataset, "ds", params, subfolderpath, save_all=True)
     original_id = original_output["id"]
 
@@ -493,9 +493,11 @@ def downsample_experiment(
 
     # now plot the results. Y value is average accuracy of distilled model plotted over different downsamples
     # add a line for baseline teacher and baseline student
-    plt.figure(figsize=(8,6), dpi=300)
-    baseline_student_acc = original_output["analysis"]["avg_acc_test_student"]
-    baseline_teacher_acc = original_output["analysis"]["avg_acc_test_teacher"]
+    baseline_student_avg_acc = original_output["analysis"]["avg_acc_test_student"]
+    baseline_teacher_avg_acc = original_output["analysis"]["avg_acc_test_teacher"]
+    baseline_student_final_acc = original_output["analysis"]["final_acc_test_student"]
+    baseline_teacher_final_acc = original_output["analysis"]["final_acc_test_teacher"]
+    
     all_final_acc = np.array([output["analysis"]["final_acc_test_distilled"] for output in all_outputs])
     all_avg_acc = np.array([output["analysis"]["avg_acc_test_distilled"] for output in all_outputs])
     downsamples = np.array(downsamples)
@@ -508,19 +510,31 @@ def downsample_experiment(
     interp_final_acc = interpolator_final(X_)
     interp_avg_acc = interpolator_avg(X_)
     
-    plt.axhline(y=baseline_teacher_acc, linestyle=':', color="orange", alpha=0.7, label="Avg Teacher")
-    plt.axhline(y=baseline_student_acc, linestyle=':', color="green", alpha=0.7, label="Avg Student")
-
+    plt.figure(figsize=(8,6), dpi=300)
+    plt.axhline(y=baseline_teacher_final_acc, linestyle=':', color="orange", alpha=0.7, label="Final Teacher Accuracy")
+    plt.axhline(y=baseline_student_final_acc, linestyle=':', color="green", alpha=0.7, label="Final Student Accuracy")
     #plt.plot(X_, interp_final_acc, label="Final Distilled")
     #plt.plot(X_, interp_avg_acc, label="Avg Distilled")
-
-    plt.plot(downsamples, all_final_acc, marker='o', label="Final Distilled")
-    #plt.plot(downsamples, all_avg_acc, marker='o', label="Avg Distilled")
+    plt.plot(downsamples, all_final_acc, marker='o', label="Final Distilled Accuracy")
     plt.xlabel("Downsample Rate")
     plt.ylabel("Accuracy (%)")
-    plt.legend()
+    plt.legend(loc="upper right")
     plt.grid(True, alpha=0.3)
-    plt.savefig(os.path.join(subfolderpath, "downsample_results.png"))
+    plt.savefig(os.path.join(subfolderpath, "downsample_results_final_acc.png"))
+    plt.close()
+
+    
+    plt.figure(figsize=(8,6), dpi=300)
+    plt.axhline(y=baseline_teacher_avg_acc, linestyle=':', color="orange", alpha=0.7, label="Avg Teacher Accuracy")
+    plt.axhline(y=baseline_student_avg_acc, linestyle=':', color="green", alpha=0.7, label="Avg Student Accuracy")
+    #plt.plot(X_, interp_final_acc, label="Final Distilled")
+    #plt.plot(X_, interp_avg_acc, label="Avg Distilled")
+    plt.plot(downsamples, all_avg_acc, marker='o', label="Avg Distilled Accuracy")
+    plt.xlabel("Downsample Rate")
+    plt.ylabel("Accuracy (%)")
+    plt.legend(loc="upper right")
+    plt.grid(True, alpha=0.3)
+    plt.savefig(os.path.join(subfolderpath, "downsample_results_avg_acc.png"))
     plt.close()
 
     return all_outputs

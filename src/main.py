@@ -13,17 +13,16 @@ np.random.seed(0)
 
 if __name__ == "__main__":
     # run downsample experiment
+    kmnist_dataset = KMNISTDataset()
+    mnist3d_dataset = MNIST3DDataset()
     mnist_dataset = MNISTDataset()
 
+    # MNIST
     mnist_ds_experiment = { 
-        "teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 40 }
+        "teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 60 }
     downsample_experiment(mnist_dataset, "MNIST-Downsample", params=mnist_ds_experiment, 
-                          downsamples=[0.05, 0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.30, 0.40], overwrite=False)
+                          downsamples=[0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25], overwrite=True)
     
-    exit()
-    """### Load MNIST data"""
-    mnist_dataset = MNISTDataset()
-
     # best T and s for MNIST are T=30,s=7.5
     # { "teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 40, "over": 1, "under": 0 },
     mnist_experiments = [        
@@ -34,17 +33,15 @@ if __name__ == "__main__":
         mnist_results, df = distilled_experiment(
             mnist_dataset, f"MNIST", params)
         print(mnist_results)
-        
-    """### Load MNIST-3D data"""
-    mnist3d_dataset = MNIST3DDataset()
+    
+    # MNIST-3D
     mnist3d_ds_experiment = { 
         "teacher_num_clauses": 2000, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "downsample": 0.02 }
     downsample_experiment(mnist3d_dataset, "MNIST3D-Downsample", params=mnist3d_ds_experiment, 
-                          downsamples=[0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45])
+                          downsamples=[0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35], overwrite=True)
 
     # so far, best params are: num_clauses=750, threshold=50, specificity=3.0
     #         { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 20 },
-
     mnist3d_experiments = [
         { "teacher_num_clauses": 2000, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "downsample": 0.02 },
     ]
@@ -54,16 +51,9 @@ if __name__ == "__main__":
             mnist3d_dataset, f"MNIST-3D", params)
         print(mnist3d_results)
 
-
-    """### Load KMNIST data"""
-    kmnist_dataset = KMNISTDataset()
-    X_train, Y_train, X_test, Y_test = kmnist_dataset.get_data()
-
+    # KMNIST
     kmnist_experiments = [
-        { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30, "downsample": 0.02 },
-        { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30, "downsample": 0.02 },
-        { "teacher_num_clauses": 1600, "student_num_clauses": 400, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30, "downsample": 0.02 },
-        { "teacher_num_clauses": 2400, "student_num_clauses": 400, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30, "downsample": 0.02 },
+        { "teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30, "downsample": 0.02 },
     ]
     
     for i, params in enumerate(kmnist_experiments):
@@ -71,6 +61,14 @@ if __name__ == "__main__":
             kmnist_dataset, f"KMNIST", params)
         print(kmnist_results)
 
+    kmnist_ds_experiment = { 
+        "teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30, "downsample": 0.02 }
+    downsample_experiment(kmnist_dataset, "KMNIST-Downsample", params=kmnist_ds_experiment, 
+                          downsamples=[0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25], overwrite=True)
+    
+    # Fashion-MNIST
+    
+    
 
     ############################
     print("Prematurely exiting because we already have all the data we need")
