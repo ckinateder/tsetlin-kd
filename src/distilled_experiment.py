@@ -427,17 +427,16 @@ def downsample_experiment(
 ) -> dict:
     """
     Run a downsample experiment comparing teacher, student, and distilled models.
-
+    Note that the first downsample is the original data, so it's not included in the downsamples list.
+    0 will be prepended to the downsamples list to ensure that the original data is used as a baseline.
+    Duplicate downsamples are removed and the list is sorted.
 
     Args:
-        X_train (np.ndarray): Training data features
-        Y_train (np.ndarray): Training data labels
-        X_test (np.ndarray): Test data features 
-        Y_test (np.ndarray): Test data labels
+        dataset (Dataset): The dataset to use for the experiment
         experiment_name (str): Name of the experiment
         params (dict, optional): Parameters for the experiment. Defaults to DOWNSAMPLE_DEFAULTS.
+        downsamples (list, optional): List of downsample rates to use for the experiment. Defaults to DOWNSAMPLE_DEFAULTS.
         folderpath (str, optional): Path to save experiment results. Defaults to "experiments".
-        save_all (bool, optional): Whether to save all models. Defaults to False.
 
     Returns:
         dict: Dictionary containing experiment results including:
@@ -446,6 +445,7 @@ def downsample_experiment(
             - Number of clauses dropped during distillation
             - Total experiment time
     """
+    downsamples = [0] + downsamples # add 0 to the downsamples
     downsamples = sorted(list(set(downsamples))) # remove duplicates and sort
     print(f"Running Downsample Experiment {experiment_name} with params: {params} and downsamples: {downsamples}")
     
@@ -467,8 +467,8 @@ def downsample_experiment(
     # then train distilled models with downsampling
     all_outputs = []
     print("Training distilled models with downsampling...")
-    ended_at = -1
-    for i, downsample in enumerate(downsamples):
+    failed_downsamples = []
+    for i, downsample in enumerate(downsamples[1:]): # skip the first one because it's the original
         print(f"Training distilled model with downsampling {downsample}")
         params["downsample"] = downsample
         output_dict, _ = distilled_experiment(dataset, "ds", params, subfolderpath, 
@@ -478,18 +478,24 @@ def downsample_experiment(
                                                prefilled_results=original_results_pd,
                                                overwrite=overwrite,
                                                save_all=False)
-        if output_dict is not None:
-            all_outputs.append(output_dict)
-        else:
+        all_outputs.append(output_dict)
+        if output_dict is None:
             print(f"Skipping downsample {downsample} because it failed")
-            ended_at = i
-            break
+            failed_downsamples.append(i)
     
-    if ended_at != -1:
-        downsamples = downsamples[:ended_at]
-        all_outputs = all_outputs[:ended_at]
+    if len(failed_downsamples) > 0:
+        print(f"Failed to train distilled models with downsamples: {[downsamples[i] for i in failed_downsamples]}")
+        # remove failed downsamples from downsamples list
+        downsamples = [d for i, d in enumerate(downsamples) if i not in failed_downsamples]
+        all_outputs = [o for i, o in enumerate(all_outputs) if i not in failed_downsamples]
 
     print("Done training distilled models with downsampling")
+
+    # get original accuracy
+    original_final_acc = original_output["analysis"]["final_acc_test_distilled"]
+    original_avg_acc = original_output["analysis"]["avg_acc_test_distilled"]
+    original_training_time = original_output["analysis"]["sum_time_train_distilled"]
+    original_reduction_percentage = 0
 
     # now plot the results. Y value is average accuracy of distilled model plotted over different downsamples
     # add a line for baseline teacher and baseline student
@@ -497,19 +503,17 @@ def downsample_experiment(
     baseline_teacher_avg_acc = original_output["analysis"]["avg_acc_test_teacher"]
     baseline_student_final_acc = original_output["analysis"]["final_acc_test_student"]
     baseline_teacher_final_acc = original_output["analysis"]["final_acc_test_teacher"]
-    
-    all_final_acc = np.array([output["analysis"]["final_acc_test_distilled"] for output in all_outputs])
-    all_avg_acc = np.array([output["analysis"]["avg_acc_test_distilled"] for output in all_outputs])
+    baseline_student_training_time = original_output["analysis"]["sum_time_train_student"]
+    baseline_teacher_training_time = original_output["analysis"]["sum_time_train_teacher"]
+
+    # get final and average distilled accuracy
+    all_final_acc = np.array([original_final_acc] + [output["analysis"]["final_acc_test_distilled"] for output in all_outputs])
+    all_avg_acc = np.array([original_avg_acc] + [output["analysis"]["avg_acc_test_distilled"] for output in all_outputs])
+    all_training_time = np.array([original_training_time] + [output["analysis"]["sum_time_train_distilled"] for output in all_outputs])
+    all_reduction_percentage = np.array([original_reduction_percentage] + [output["analysis"]["num_clauses_dropped_percentage"] for output in all_outputs])
     downsamples = np.array(downsamples)
 
-    interpolator_final = interp1d(downsamples, all_final_acc, kind = "cubic")
-    interpolator_avg = interp1d(downsamples, all_avg_acc, kind = "cubic")
-    
-    # Plotting the Graph
-    X_=np.linspace(downsamples.min(), downsamples.max(), 500)
-    interp_final_acc = interpolator_final(X_)
-    interp_avg_acc = interpolator_avg(X_)
-    
+    # plot final accuracy
     plt.figure(figsize=(8,6), dpi=300)
     plt.axhline(y=baseline_teacher_final_acc, linestyle=':', color="orange", alpha=0.7, label="Final Teacher Accuracy")
     plt.axhline(y=baseline_student_final_acc, linestyle=':', color="green", alpha=0.7, label="Final Student Accuracy")
@@ -523,18 +527,38 @@ def downsample_experiment(
     plt.savefig(os.path.join(subfolderpath, "downsample_results_final_acc.png"))
     plt.close()
 
-    
+    # plot average accuracy
     plt.figure(figsize=(8,6), dpi=300)
     plt.axhline(y=baseline_teacher_avg_acc, linestyle=':', color="orange", alpha=0.7, label="Avg Teacher Accuracy")
     plt.axhline(y=baseline_student_avg_acc, linestyle=':', color="green", alpha=0.7, label="Avg Student Accuracy")
-    #plt.plot(X_, interp_final_acc, label="Final Distilled")
-    #plt.plot(X_, interp_avg_acc, label="Avg Distilled")
     plt.plot(downsamples, all_avg_acc, marker='o', label="Avg Distilled Accuracy")
     plt.xlabel("Downsample Rate")
     plt.ylabel("Accuracy (%)")
     plt.legend(loc="upper right")
     plt.grid(True, alpha=0.3)
     plt.savefig(os.path.join(subfolderpath, "downsample_results_avg_acc.png"))
+    plt.close()
+
+    # plot training time
+    plt.figure(figsize=(8,6), dpi=300)
+    plt.axhline(y=baseline_teacher_training_time, linestyle=':', color="orange", alpha=0.7, label="Training Time Teacher")
+    plt.axhline(y=baseline_student_training_time, linestyle=':', color="green", alpha=0.7, label="Training Time Student")
+    plt.plot(downsamples, all_training_time, marker='o', label="Training Time Distilled")
+    plt.xlabel("Downsample Rate")
+    plt.ylabel("Training Time (s)")
+    plt.legend(loc="upper right")
+    plt.grid(True, alpha=0.3)
+    plt.savefig(os.path.join(subfolderpath, "downsample_results_training_time.png"))
+    plt.close()
+
+    # plot reduction percentage
+    plt.figure(figsize=(8,6), dpi=300)
+    plt.plot(downsamples, all_reduction_percentage, marker='o', label="Reduction Percentage")
+    plt.xlabel("Downsample Rate")
+    plt.ylabel("Reduction Percentage (%)")
+    plt.legend(loc="upper left")
+    plt.grid(True, alpha=0.3)
+    plt.savefig(os.path.join(subfolderpath, "downsample_results_reduction_percentage.png"))
     plt.close()
 
     return all_outputs

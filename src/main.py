@@ -21,7 +21,7 @@ if __name__ == "__main__":
     mnist_ds_experiment = { 
         "teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 60 }
     downsample_experiment(mnist_dataset, "MNIST-Downsample", params=mnist_ds_experiment, 
-                          downsamples=[0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25], overwrite=True)
+                          downsamples=[0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25], overwrite=False)
     
     # best T and s for MNIST are T=30,s=7.5
     # { "teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 40, "over": 1, "under": 0 },
@@ -36,9 +36,9 @@ if __name__ == "__main__":
     
     # MNIST-3D
     mnist3d_ds_experiment = { 
-        "teacher_num_clauses": 2000, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "downsample": 0.02 }
+        "teacher_num_clauses": 2000, "student_num_clauses": 300, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "downsample": 0.02 }
     downsample_experiment(mnist3d_dataset, "MNIST3D-Downsample", params=mnist3d_ds_experiment, 
-                          downsamples=[0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35], overwrite=True)
+                          downsamples=[0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35], overwrite=False)
 
     # so far, best params are: num_clauses=750, threshold=50, specificity=3.0
     #         { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 20 },
@@ -64,7 +64,7 @@ if __name__ == "__main__":
     kmnist_ds_experiment = { 
         "teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30, "downsample": 0.02 }
     downsample_experiment(kmnist_dataset, "KMNIST-Downsample", params=kmnist_ds_experiment, 
-                          downsamples=[0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25], overwrite=True)
+                          downsamples=[0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50], overwrite=False)
     
     # Fashion-MNIST
     
