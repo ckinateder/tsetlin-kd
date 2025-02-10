@@ -32,8 +32,60 @@ To enable the following instructions: AVX2 AVX_VNNI FMA, in other operations, re
 
 ## Usage
 
-### Run the detailed example
+### Run the main file
 
 ```bash
-python3 src/detailed_ex.py
+python3 src/main.py
 ```
+
+### Understanding the experiments
+
+Here is an example of the `main.py` file:
+
+```python3
+from tensorflow.keras.datasets import mnist, fashion_mnist
+from torchvision.datasets import KMNIST
+from datasets import prepare_imdb_data
+import h5py
+import numpy as np
+from distillation_experiment import distillation_experiment, downsample_experiment
+from torchvision import transforms
+import os
+from datasets import MNISTDataset, MNIST3DDataset, FashionMNISTDataset, KMNISTDataset
+
+# set seeds
+np.random.seed(0)
+
+if __name__ == "__main__":
+    # load datasets
+    kmnist_dataset = KMNISTDataset()
+    mnist3d_dataset = MNIST3DDataset()
+    mnist_dataset = MNISTDataset()
+    fashion_mnist_dataset = FashionMNISTDataset()
+    
+    # run distilled experiments
+    # this goes (dataset, name, params, kwargs)
+    distilled_experiments = [
+        (kmnist_dataset, "KMNIST", { "teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 600, "s": 5, "teacher_epochs": 20, "student_epochs": 60, "downsample": 0.02 }, {"overwrite": False}),
+        (mnist3d_dataset, "MNIST3D", { "teacher_num_clauses": 2000, "student_num_clauses": 300, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "downsample": 0.02 }, {"overwrite": False}),
+        (mnist_dataset, "MNIST", { "teacher_num_clauses": 2000, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 80, "downsample": 0.02 }, {"overwrite": False}),
+        (fashion_mnist_dataset, "FashionMNIST", { "teacher_num_clauses": 2000, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 80, "downsample": 0.02 }, {"overwrite": False}),
+    ]
+    
+    for dataset, name, params, kwargs in distilled_experiments:
+        distillation_experiment(dataset, name, params, **kwargs)
+
+    # run downsample experiments
+    # this goes (dataset, name, params, downsamples)
+    downsample_experiments = [
+        (mnist3d_dataset, "MNIST3D-Downsample", {"teacher_num_clauses": 2000, "student_num_clauses": 300, "T": 60, "s": 3.0, "teacher_epochs": 15, "student_epochs": 45 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35]),
+        (mnist_dataset, "MNIST-Downsample", {"teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 80 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35]),
+        (kmnist_dataset, "KMNIST-Downsample", {"teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 600, "s": 5, "teacher_epochs": 20, "student_epochs": 60 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45]),
+        (fashion_mnist_dataset, "FashionMNIST-Downsample", {"teacher_num_clauses": 2000, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 80 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45]),
+    ]
+    
+    for dataset, name, params, downsamples in downsample_experiments:
+        downsample_experiment(dataset, name, params, downsamples)
+```
+
+**ADD MORE HERE**

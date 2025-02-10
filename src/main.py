@@ -3,71 +3,49 @@ from torchvision.datasets import KMNIST
 from datasets import prepare_imdb_data
 import h5py
 import numpy as np
-from distilled_experiment import distilled_experiment, downsample_experiment
+from distillation_experiment import distillation_experiment, downsample_experiment
 from torchvision import transforms
 import os
-from datasets import MNISTDataset, MNIST3DDataset, FashionMNISTDataset, KMNISTDataset
+from datasets import MNISTDataset, MNIST3DDataset, FashionMNISTDataset, KMNISTDataset, IMDBDataset
 
 # set seeds
 np.random.seed(0)
 
 if __name__ == "__main__":
-    # run downsample experiment
+    # load datasets
     kmnist_dataset = KMNISTDataset()
     mnist3d_dataset = MNIST3DDataset()
     mnist_dataset = MNISTDataset()
-
-    # MNIST
-    mnist_ds_experiment = { 
-        "teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 60 }
-    downsample_experiment(mnist_dataset, "MNIST-Downsample", params=mnist_ds_experiment, 
-                          downsamples=[0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25], overwrite=False)
+    fashion_mnist_dataset = FashionMNISTDataset()
+    imdb_dataset = IMDBDataset()
     
-    # best T and s for MNIST are T=30,s=7.5
-    # { "teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 40, "over": 1, "under": 0 },
-    mnist_experiments = [        
-        { "teacher_num_clauses": 2000, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 40, "downsample": 0.02 },
-    ]
-
-    for i, params in enumerate(mnist_experiments):
-        mnist_results, df = distilled_experiment(
-            mnist_dataset, f"MNIST", params)
-        print(mnist_results)
-    
-    # MNIST-3D
-    mnist3d_ds_experiment = { 
-        "teacher_num_clauses": 2000, "student_num_clauses": 300, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "downsample": 0.02 }
-    downsample_experiment(mnist3d_dataset, "MNIST3D-Downsample", params=mnist3d_ds_experiment, 
-                          downsamples=[0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35], overwrite=False)
-
-    # so far, best params are: num_clauses=750, threshold=50, specificity=3.0
-    #         { "teacher_num_clauses": 1000, "student_num_clauses": 100, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 20 },
-    mnist3d_experiments = [
-        { "teacher_num_clauses": 2000, "student_num_clauses": 400, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "downsample": 0.02 },
-    ]
-
-    for i, params in enumerate(mnist3d_experiments):
-        mnist3d_results, df = distilled_experiment(
-            mnist3d_dataset, f"MNIST-3D", params)
-        print(mnist3d_results)
-
-    # KMNIST
-    kmnist_experiments = [
-        { "teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30, "downsample": 0.02 },
+    # run distilled experiments
+    # this goes (dataset, name, params, kwargs)
+    distilled_experiments = [
+        (kmnist_dataset, "KMNIST", { "teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 600, "s": 5, "teacher_epochs": 20, "student_epochs": 60, "downsample": 0.02 }, {"overwrite": False}),
+        (mnist3d_dataset, "MNIST3D", { "teacher_num_clauses": 2000, "student_num_clauses": 300, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "downsample": 0.02 }, {"overwrite": False}),
+        (mnist_dataset, "MNIST", { "teacher_num_clauses": 2000, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 80, "downsample": 0.02 }, {"overwrite": False}),
+        (fashion_mnist_dataset, "FashionMNIST", { "teacher_num_clauses": 2000, "student_num_clauses": 100, "T": 30, "s": 10.0,"teacher_epochs": 20, "student_epochs": 80, "downsample": 0.02 }, {"overwrite": False}),
+        (imdb_dataset, "IMDB", { "teacher_num_clauses": 10000, "student_num_clauses": 2000, "T": 80*100, "s": 10.0, "teacher_epochs": 30, "student_epochs": 60 }, {"overwrite": False}),
     ]
     
-    for i, params in enumerate(kmnist_experiments):
-        kmnist_results, df = distilled_experiment(
-            kmnist_dataset, f"KMNIST", params)
-        print(kmnist_results)
+    print("Running distilled experiments")
+    for dataset, name, params, kwargs in distilled_experiments:
+        distillation_experiment(dataset, name, params, **kwargs)
 
-    kmnist_ds_experiment = { 
-        "teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 600, "s": 5, "teacher_epochs": 30, "student_epochs": 30, "downsample": 0.02 }
-    downsample_experiment(kmnist_dataset, "KMNIST-Downsample", params=kmnist_ds_experiment, 
-                          downsamples=[0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50], overwrite=False)
+    # run downsample experiments
+    # this goes (dataset, name, params, downsamples, kwargs)
+    downsample_experiments = [
+        (fashion_mnist_dataset, "FashionMNIST-Downsample", {"teacher_num_clauses": 2000, "student_num_clauses": 100, "T": 30, "s": 10.0,"teacher_epochs": 20, "student_epochs": 80 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
+        (mnist3d_dataset, "MNIST3D-Downsample", {"teacher_num_clauses": 2000, "student_num_clauses": 300, "T": 60, "s": 3.0, "teacher_epochs": 15, "student_epochs": 45 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35], {"overwrite": False}),
+        (mnist_dataset, "MNIST-Downsample", {"teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 80 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35], {"overwrite": False}),
+        (kmnist_dataset, "KMNIST-Downsample", {"teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 600, "s": 5, "teacher_epochs": 20, "student_epochs": 60 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
+        (imdb_dataset, "IMDB-Downsample", {"teacher_num_clauses": 10000, "student_num_clauses": 2000, "T": 80*100, "s": 10.0, "teacher_epochs": 30, "student_epochs": 60 }, [0.01, 0.02, 0.05, 0.10], {"overwrite": False}),
+    ]
     
-    # Fashion-MNIST
-    
+    print("Running downsample experiments")
+    for dataset, name, params, downsamples, kwargs in downsample_experiments:
+        downsample_experiment(dataset, name, params, downsamples, **kwargs)
     
 
     ############################
@@ -99,7 +77,7 @@ if __name__ == "__main__":
     ]
 
     for i, params in enumerate(mnist_experiments):
-        mnist_results, df = distilled_experiment(
+        mnist_results, df = distillation_experiment(
             X_train, Y_train, X_test, Y_test, f"MNIST", params)
         print(mnist_results)
         
@@ -131,7 +109,7 @@ if __name__ == "__main__":
     ]
 
     for i, params in enumerate(mnist3d_experiments):
-        mnist3d_results, df = distilled_experiment(
+        mnist3d_results, df = distillation_experiment(
             X_train, Y_train, X_test, Y_test, f"MNIST-3D", params)
         print(mnist3d_results)
 
@@ -142,7 +120,7 @@ if __name__ == "__main__":
     ]
     
     for i, params in enumerate(imdb_experiments):
-        imdb_results, df = distilled_experiment(
+        imdb_results, df = distillation_experiment(
             X_train, Y_train, X_test, Y_test, f"IMDB", params)
         print(imdb_results)
 
@@ -174,7 +152,7 @@ if __name__ == "__main__":
     ]
 
     for i, params in enumerate(mnist3d_experiments):
-        mnist3d_results, df = distilled_experiment(
+        mnist3d_results, df = distillation_experiment(
             X_train, Y_train, X_test, Y_test, f"MNIST-3D", params)
         print(mnist3d_results)
 
@@ -200,7 +178,7 @@ if __name__ == "__main__":
     ]
 
     for i, params in enumerate(mnist_experiments):
-        mnist_results, df = distilled_experiment(
+        mnist_results, df = distillation_experiment(
             X_train, Y_train, X_test, Y_test, f"MNIST", params)
         print(mnist_results)
 
@@ -224,7 +202,7 @@ if __name__ == "__main__":
     ]
     
     for i, params in enumerate(mnist_experiments):
-        fmnist_results, df = distilled_experiment(
+        fmnist_results, df = distillation_experiment(
             X_train, Y_train, X_test, Y_test, f"FashionMNIST", params)
         print(fmnist_results)
 
@@ -250,7 +228,7 @@ if __name__ == "__main__":
     ]
     
     for i, params in enumerate(kmnist_experiments):
-        kmnist_results, df = distilled_experiment(
+        kmnist_results, df = distillation_experiment(
             X_train, Y_train, X_test, Y_test, f"KMNIST", params)
         print(kmnist_results)
 
@@ -271,7 +249,7 @@ if __name__ == "__main__":
     ]
 
     for i, params in enumerate(cifar10_experiments):
-        cifar10_results, df = distilled_experiment(
+        cifar10_results, df = distillation_experiment(
             X_train, Y_train, X_test, Y_test, f"CIFAR-10", params)
         print(cifar10_results)
     """

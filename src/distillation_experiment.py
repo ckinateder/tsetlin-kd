@@ -461,9 +461,17 @@ def downsample_experiment(
     params["downsample"] = 0
     print("Training distilled model first, fully raw, NO baseline models and NO downsampling")
     subfolderpath = os.path.join(folderpath, experiment_name)
-    make_dir(subfolderpath, overwrite=overwrite)
-    original_output, original_results_pd = distillation_experiment(dataset, "ds", params, subfolderpath, save_all=True)
-    original_id = original_output["id"]
+
+    # check if the experiment already exists
+    expected_id = validate_params(params, "ds")
+    if not overwrite and os.path.exists(os.path.join(subfolderpath, expected_id)):
+        print(f"Experiment {expected_id} already exists, loading results")
+        original_output, original_results_pd = load_json(os.path.join(subfolderpath, expected_id, "output.json")), pd.read_csv(os.path.join(subfolderpath, expected_id, "results.csv"))
+        original_id = expected_id
+    else:
+        make_dir(subfolderpath, overwrite=overwrite)
+        original_output, original_results_pd = distillation_experiment(dataset, "ds", params, subfolderpath, save_all=True)
+        original_id = original_output["id"]
 
     # now go load each model
     print("Loading baseline models and pretrained teacher model...")
