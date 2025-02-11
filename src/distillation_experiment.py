@@ -28,6 +28,10 @@ TIME_TEST_TEACHER = "time_test_teacher"
 TIME_TEST_STUDENT = "time_test_student"
 TIME_TEST_DISTILLED = "time_test_distilled"
 
+
+PLOT_FIGSIZE = (8, 6)
+PLOT_DPI = 300
+
 RESULTS_COLUMNS = [ACC_TEST_TEACHER, ACC_TEST_STUDENT, ACC_TEST_DISTILLED, TIME_TRAIN_TEACHER, TIME_TRAIN_STUDENT,
                            TIME_TRAIN_DISTILLED, TIME_TEST_TEACHER, TIME_TEST_STUDENT, TIME_TEST_DISTILLED]
 
@@ -155,7 +159,7 @@ def distillation_experiment(
     params: dict = DISTILLED_DEFAULTS,
     folderpath: str = DEFAULT_FOLDERPATH,
     save_all: bool = False,
-    overwrite: bool = True,
+    overwrite: bool = False,
     baseline_teacher_model: MultiClassTsetlinMachine = None,
     baseline_student_model: MultiClassTsetlinMachine = None,
     pretrained_teacher_model: MultiClassTsetlinMachine = None,
@@ -238,8 +242,10 @@ def distillation_experiment(
         results = pd.DataFrame(columns=RESULTS_COLUMNS, index=range(params['combined_epochs']))
     else:
         results = prefilled_results
-        assert results.columns.tolist() == RESULTS_COLUMNS, "Prefilled results columns do not match expected columns"
-        assert results.index._range == range(params['combined_epochs']), "Prefilled results index does not match expected index"
+        assert results.columns.tolist() == RESULTS_COLUMNS, \
+            f"Prefilled results columns do not match expected columns: {results.columns.tolist()} != {RESULTS_COLUMNS}"
+        assert results.index.to_list() == list(range(params['combined_epochs'])), \
+            f"Prefilled results index does not match expected index: {results.index.to_list()} != {range(params['combined_epochs'])}"
 
         # delete entries after params['teacher_epochs'] for 'acc_test_distilled', 'time_train_distilled', 'time_test_distilled' columns
         results.loc[params['teacher_epochs']:, ACC_TEST_DISTILLED] = np.nan
@@ -409,13 +415,12 @@ def distillation_experiment(
         save_pkl(distilled_tm, os.path.join(folderpath, experiment_id, DISTILLED_MODEL_PATH))
 
     # plot results and save
-    plt.figure(figsize=(8,6), dpi=300)
+    plt.figure(figsize=PLOT_FIGSIZE, dpi=PLOT_DPI)
     plt.plot(results[ACC_TEST_DISTILLED], label="Distilled")
     plt.plot(results[ACC_TEST_TEACHER], label="Teacher", alpha=0.5)
     plt.plot(results[ACC_TEST_STUDENT], label="Student", alpha=0.5)
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy (%)")
-    #plt.title(f"Testing Accuracy of {experiment_name} Over {combined_epochs} Epochs")
     plt.xticks(range(0, len(results), 5))
     plt.legend(loc="upper left")
     plt.grid(linestyle='dotted')
@@ -466,7 +471,8 @@ def downsample_experiment(
     expected_id = validate_params(params, "ds")
     if not overwrite and os.path.exists(os.path.join(subfolderpath, expected_id)):
         print(f"Experiment {expected_id} already exists, loading results")
-        original_output, original_results_pd = load_json(os.path.join(subfolderpath, expected_id, "output.json")), pd.read_csv(os.path.join(subfolderpath, expected_id, "results.csv"))
+        original_output = load_json(os.path.join(subfolderpath, expected_id, "output.json"))
+        original_results_pd = pd.read_csv(os.path.join(subfolderpath, expected_id, "results.csv"), index_col=0)
         original_id = expected_id
     else:
         make_dir(subfolderpath, overwrite=overwrite)
@@ -533,61 +539,84 @@ def downsample_experiment(
     all_reduction_percentage = np.array([original_reduction_percentage] + [output["analysis"]["num_clauses_dropped_percentage"] for output in all_outputs])
     downsamples = np.array(downsamples)
 
+    # plots
+    horiz_alpha = 0.8
+    marker_size = 3
+
     # plot final accuracy
-    plt.figure(figsize=(8,6), dpi=300)
-    plt.axhline(y=baseline_teacher_final_acc, linestyle=':', color="orange", alpha=0.7, label="Final Teacher Accuracy")
-    plt.axhline(y=baseline_student_final_acc, linestyle=':', color="green", alpha=0.7, label="Final Student Accuracy")
-    plt.plot(downsamples, all_final_acc, marker='o', label="Final Distilled Accuracy")
+    plt.figure(figsize=PLOT_FIGSIZE, dpi=PLOT_DPI)
+    plt.axhline(y=baseline_teacher_final_acc, linestyle=':', color="orange", alpha=horiz_alpha, label="Teacher")
+    plt.axhline(y=baseline_student_final_acc, linestyle=':', color="green", alpha=horiz_alpha, label="Student")
+    plt.plot(downsamples, all_final_acc, marker='o', markersize=marker_size, label="Distilled")
     plt.xlabel("Downsample Rate")
     plt.ylabel("Final Accuracy (%)")
     plt.legend(loc="upper right")
-    plt.grid(True, alpha=0.3)
+    #import pdb; pdb.set_trace()
+    yticks = plt.yticks()[0]
+    if yticks.shape[0] <= PLOT_FIGSIZE[1]+2:
+        plt.yticks(np.arange(yticks.min(), plt.yticks()[0].max(), (yticks[1]-yticks[0])/2))
+    plt.xticks(np.arange(0, downsamples.max()+0.05, 0.05))
+    plt.grid(linestyle='dotted')
     plt.savefig(os.path.join(subfolderpath, "downsample_results_final_acc.png"))
     plt.close()
 
     # plot average accuracy
-    plt.figure(figsize=(8,6), dpi=300)
-    plt.axhline(y=baseline_teacher_avg_acc, linestyle=':', color="orange", alpha=0.7, label="Avg Teacher Accuracy")
-    plt.axhline(y=baseline_student_avg_acc, linestyle=':', color="green", alpha=0.7, label="Avg Student Accuracy")
-    plt.plot(downsamples, all_avg_acc, marker='o', label="Avg Distilled Accuracy")
+    plt.figure(figsize=PLOT_FIGSIZE, dpi=PLOT_DPI)
+    plt.axhline(y=baseline_teacher_avg_acc, linestyle=':', color="orange", alpha=horiz_alpha, label="Teacher")
+    plt.axhline(y=baseline_student_avg_acc, linestyle=':', color="green", alpha=horiz_alpha, label="Student")
+    plt.plot(downsamples, all_avg_acc, marker='o', markersize=marker_size, label="Distilled")
     plt.xlabel("Downsample Rate")
     plt.ylabel("Average Accuracy (%)")
     plt.legend(loc="upper right")
-    plt.grid(True, alpha=0.3)
+    yticks = plt.yticks()[0]
+    if yticks.shape[0] <= PLOT_FIGSIZE[1]+2:
+        plt.yticks(np.arange(yticks.min(), plt.yticks()[0].max(), (yticks[1]-yticks[0])/2))
+    plt.xticks(np.arange(0, downsamples.max()+0.05, 0.05))
+    plt.grid(linestyle='dotted')
     plt.savefig(os.path.join(subfolderpath, "downsample_results_avg_acc.png"))
     plt.close()
 
     # plot total training time
-    plt.figure(figsize=(8,6), dpi=300)
-    plt.axhline(y=baseline_teacher_total_training_time, linestyle=':', color="orange", alpha=0.7, label="Training Time Teacher")
-    plt.axhline(y=baseline_student_total_training_time, linestyle=':', color="green", alpha=0.7, label="Training Time Student")
-    plt.plot(downsamples, all_total_training_time, marker='o', label="Training Time Distilled")
+    plt.figure(figsize=PLOT_FIGSIZE, dpi=PLOT_DPI)
+    plt.axhline(y=baseline_teacher_total_training_time, linestyle=':', color="orange", alpha=horiz_alpha, label="Teacher")
+    plt.axhline(y=baseline_student_total_training_time, linestyle=':', color="green", alpha=horiz_alpha, label="Student")
+    plt.plot(downsamples, all_total_training_time, marker='o', markersize=marker_size, label="Distilled")
     plt.xlabel("Downsample Rate")
     plt.ylabel("Total Training Time (s)")
     plt.legend(loc="upper right")
-    plt.grid(True, alpha=0.3)
+    yticks = plt.yticks()[0]
+    if yticks.shape[0] <= PLOT_FIGSIZE[1]+2:
+        plt.yticks(np.arange(yticks.min(), plt.yticks()[0].max(), (yticks[1]-yticks[0])/2))
+    plt.xticks(np.arange(0, downsamples.max()+0.05, 0.05))
+    plt.grid(linestyle='dotted')
     plt.savefig(os.path.join(subfolderpath, "downsample_results_total_training_time.png"))
     plt.close()
 
     # plot average training time
-    plt.figure(figsize=(8,6), dpi=300)
-    plt.axhline(y=baseline_teacher_avg_training_time, linestyle=':', color="orange", alpha=0.7, label="Training Time Teacher")
-    plt.axhline(y=baseline_student_avg_training_time, linestyle=':', color="green", alpha=0.7, label="Training Time Student")
-    plt.plot(downsamples, all_avg_training_time, marker='o', label="Training Time Distilled")
+    plt.figure(figsize=PLOT_FIGSIZE, dpi=PLOT_DPI)
+    plt.axhline(y=baseline_teacher_avg_training_time, linestyle=':', color="orange", alpha=horiz_alpha, label="Teacher")
+    plt.axhline(y=baseline_student_avg_training_time, linestyle=':', color="green", alpha=horiz_alpha, label="Student")
+    plt.plot(downsamples, all_avg_training_time, marker='o', markersize=marker_size, label="Distilled")
     plt.xlabel("Downsample Rate")
-    plt.ylabel("Average (Per Epoch) Training Time (s)")
+    plt.ylabel("Epoch Training Time (s)")
     plt.legend(loc="upper right")
-    plt.grid(True, alpha=0.3)
+    yticks = plt.yticks()[0]
+    if yticks.shape[0] <= PLOT_FIGSIZE[1]+2:
+        plt.yticks(np.arange(yticks.min(), plt.yticks()[0].max(), (yticks[1]-yticks[0])/2))
+    plt.xticks(np.arange(0, downsamples.max()+0.05, 0.05))
+    plt.grid(linestyle='dotted')
     plt.savefig(os.path.join(subfolderpath, "downsample_results_avg_training_time.png"))
     plt.close()
 
     # plot reduction percentage
-    plt.figure(figsize=(8,6), dpi=300)
-    plt.plot(downsamples, all_reduction_percentage, marker='o', label="Clause Reduction Percentage")
+    plt.figure(figsize=PLOT_FIGSIZE, dpi=PLOT_DPI)
+    plt.plot(downsamples, all_reduction_percentage, marker='o', markersize=marker_size, label="Reduction")
     plt.xlabel("Downsample Rate")
     plt.ylabel("Clause Reduction Percentage (%)")
     plt.legend(loc="upper left")
-    plt.grid(True, alpha=0.3)
+    plt.yticks(np.arange(0, 100, 10))
+    plt.xticks(np.arange(0, downsamples.max()+0.05, 0.05))
+    plt.grid(linestyle='dotted')
     plt.savefig(os.path.join(subfolderpath, "downsample_results_reduction_percentage.png"))
     plt.close()
 

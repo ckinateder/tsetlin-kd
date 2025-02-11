@@ -6,21 +6,26 @@ import numpy as np
 from distillation_experiment import distillation_experiment, downsample_experiment
 from torchvision import transforms
 import os
+import random
 from datasets import MNISTDataset, MNIST3DDataset, FashionMNISTDataset, KMNISTDataset, IMDBDataset
 
 # set seeds
 np.random.seed(0)
+random.seed(0)
 
 if __name__ == "__main__":
-    # load datasets
+    # load datasets.
+    print("Loading datasets...")
     kmnist_dataset = KMNISTDataset()
     mnist3d_dataset = MNIST3DDataset()
     mnist_dataset = MNISTDataset()
     fashion_mnist_dataset = FashionMNISTDataset()
     imdb_dataset = IMDBDataset()
+    print("Datasets loaded")
     
     # run distilled experiments
     # this goes (dataset, name, params, kwargs)
+    """
     distilled_experiments = [
         (kmnist_dataset, "KMNIST", { "teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 600, "s": 5, "teacher_epochs": 20, "student_epochs": 60, "downsample": 0.02 }, {"overwrite": False}),
         (mnist3d_dataset, "MNIST3D", { "teacher_num_clauses": 2000, "student_num_clauses": 300, "T": 60, "s": 3.0, "teacher_epochs": 10, "student_epochs": 30, "downsample": 0.02 }, {"overwrite": False}),
@@ -32,6 +37,7 @@ if __name__ == "__main__":
     print("Running distilled experiments")
     for dataset, name, params, kwargs in distilled_experiments:
         distillation_experiment(dataset, name, params, **kwargs)
+    """
 
     # run downsample experiments
     # this goes (dataset, name, params, downsamples, kwargs)
@@ -40,7 +46,7 @@ if __name__ == "__main__":
         (mnist3d_dataset, "MNIST3D-Downsample", {"teacher_num_clauses": 2000, "student_num_clauses": 300, "T": 60, "s": 3.0, "teacher_epochs": 15, "student_epochs": 45 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35], {"overwrite": False}),
         (mnist_dataset, "MNIST-Downsample", {"teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 80 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35], {"overwrite": False}),
         (kmnist_dataset, "KMNIST-Downsample", {"teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 600, "s": 5, "teacher_epochs": 20, "student_epochs": 60 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
-        (imdb_dataset, "IMDB-Downsample", {"teacher_num_clauses": 10000, "student_num_clauses": 2000, "T": 80*100, "s": 10.0, "teacher_epochs": 30, "student_epochs": 60 }, [0.01, 0.02, 0.05, 0.10], {"overwrite": False}),
+        (imdb_dataset, "IMDB-Downsample", {"teacher_num_clauses": 10000, "student_num_clauses": 2000, "T": 80*100, "s": 10.0, "teacher_epochs": 30, "student_epochs": 60 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30], {"overwrite": False}),
     ]
     
     print("Running downsample experiments")
