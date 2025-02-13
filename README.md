@@ -39,7 +39,7 @@ python3 src/main.py
 
 ### Experiment Types
 
-#### 1. Distilled Experiments
+### 1. Distilled Experiments
 Requires the following parameters:
 - **Dataset**: Input dataset
 - **Name**: Experiment name
@@ -59,7 +59,17 @@ Output is saved in `experiments/<experiment_name>/`:
 - CSV file with accuracy results
 - Accuracy graph
 
-#### 2. Downsample Experiments
+The distilled experiment goes through the following steps:
+
+1. Train the student model for `combined_epochs`
+2. Train the teacher model and save a checkpoint after `teacher_epochs`
+3. Load the teacher model at `teacher_epochs`
+4. Transform the X data through the teacher model, return the clauses
+5. Downsample the transformed data
+6. Train the distilled model for `student_epochs` 
+7. Make the output graphs
+
+### 2. Downsample Experiments
 Requires:
 - Dataset
 - Name

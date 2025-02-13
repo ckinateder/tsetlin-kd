@@ -160,10 +160,10 @@ def distillation_experiment(
     folderpath: str = DEFAULT_FOLDERPATH,
     save_all: bool = False,
     overwrite: bool = False,
-    baseline_teacher_model: MultiClassTsetlinMachine = None,
-    baseline_student_model: MultiClassTsetlinMachine = None,
-    pretrained_teacher_model: MultiClassTsetlinMachine = None,
-    prefilled_results: pd.DataFrame = None,
+    baseline_teacher_model: MultiClassTsetlinMachine | None = None,
+    baseline_student_model: MultiClassTsetlinMachine | None = None,
+    pretrained_teacher_model: MultiClassTsetlinMachine | None = None,
+    prefilled_results: pd.DataFrame | None = None,
 ) -> dict:
     """
     Run a distillation experiment comparing teacher, student, and distilled models.
@@ -310,8 +310,10 @@ def distillation_experiment(
             rm_file(teacher_model_path) # remove the teacher model file. we don't need it anymore
 
     # downsample clauses
+    print(f"Getting offline clause outputs from teacher model")
     X_train_transformed = teacher_tm.transform(X_train)
     X_test_transformed = teacher_tm.transform(X_test)
+    print(f"Downsampling clauses with downsample rate {params['downsample']}")
     X_train_downsampled, X_test_downsampled, num_clauses_dropped = downsample_clauses(X_train_transformed, X_test_transformed, params['downsample'], symmetric=True)
     reduction_percentage = 100*(num_clauses_dropped/X_train_transformed.shape[1]) # calculate the percentage of clauses dropped
     if num_clauses_dropped == X_train_transformed.shape[1]:
@@ -332,19 +334,13 @@ def distillation_experiment(
     end = time()
 
     print(f'Teacher-student training time: {end-start:.2f} s')
+
+    print(f"Calculating information transfer")
     # calculate information transfer
-    # now get final prediction probabilities for teacher and distilled
-    # class sums are arranged by [sums] x samples, so shape is (num_samples, num_classes)
+    # get outputs
     student_prediction, student_class_sums = baseline_student_tm.predict_class_sums_2d(X_test)
     teacher_prediction, teacher_class_sums = baseline_teacher_tm.predict_class_sums_2d(X_test)
-    distilled_prediction, distilled_class_sums = baseline_student_tm.predict_class_sums_2d(X_test)
-
-    # calculate mutual information using sklearn
-    mi_sklearn_dt = mutual_info_score(teacher_prediction, distilled_prediction)
-    mi_sklearn_ds = mutual_info_score(student_prediction, distilled_prediction)
-
-    print(f"Mutual information (distilled <-> teacher) (sklearn): {mi_sklearn_dt:.4f}")
-    print(f"Mutual information (distilled <-> student) (sklearn): {mi_sklearn_ds:.4f}")
+    distilled_prediction, distilled_class_sums = distilled_tm.predict_class_sums_2d(X_test_transformed)
 
     # compute our mutual information with L/C*log(L/C)
     L_student = X_train.shape[1] # number of literals for the student
@@ -392,8 +388,6 @@ def distillation_experiment(
             "num_clauses_dropped_percentage": reduction_percentage
         },
         "mutual_information": {
-            "sklearn_teacher": mi_sklearn_dt,
-            "sklearn_student": mi_sklearn_ds,
             "info_teacher": info_teacher,
             "info_student": info_student,
             "info_distilled": info_distilled
@@ -527,7 +521,7 @@ def downsample_experiment(
     original_avg_acc = original_output["analysis"]["avg_acc_test_distilled"]
     original_total_training_time = original_output["analysis"]["sum_time_train_distilled"]
     original_avg_training_time = original_output["analysis"]["avg_time_train_distilled"]
-
+    original_mutual_information = original_output["mutual_information"]["info_distilled"]
     original_reduction_percentage = 0
 
     # now plot the results. Y value is average accuracy of distilled model plotted over different downsamples
@@ -540,6 +534,8 @@ def downsample_experiment(
     baseline_teacher_total_training_time = original_output["analysis"]["sum_time_train_teacher"]
     baseline_student_avg_training_time = original_output["analysis"]["avg_time_train_student"]
     baseline_teacher_avg_training_time = original_output["analysis"]["avg_time_train_teacher"]
+    baseline_student_info = original_output["mutual_information"]["info_student"]
+    baseline_teacher_info = original_output["mutual_information"]["info_teacher"]
 
     # get final and average distilled accuracy
     all_final_acc = np.array([original_final_acc] + [output["analysis"]["final_acc_test_distilled"] for output in all_outputs])
@@ -549,10 +545,23 @@ def downsample_experiment(
     all_reduction_percentage = np.array([original_reduction_percentage] + [output["analysis"]["num_clauses_dropped_percentage"] for output in all_outputs])
 
     # get mutual information
+    all_mutual_information = np.array([original_mutual_information] + [output["mutual_information"]["info_distilled"] for output in all_outputs])
+    
+    # put into dataframe
+    all_results = pd.DataFrame({
+        "downsample": downsamples,
+        "final_acc": all_final_acc,
+        "avg_acc": all_avg_acc,
+        "total_training_time": all_total_training_time,
+        "avg_training_time": all_avg_training_time,
+        "mutual_information": all_mutual_information
+    })
+    all_results.to_csv(os.path.join(subfolderpath, "downsample_results.csv"))
 
     ## plots
     horiz_alpha = 0.8
     marker_size = 3
+    x_ticks = np.arange(0, downsamples.max()+0.05, 0.05)
 
     # plot final accuracy
     plt.figure(figsize=PLOT_FIGSIZE, dpi=PLOT_DPI)
@@ -562,11 +571,10 @@ def downsample_experiment(
     plt.xlabel("Downsample Rate")
     plt.ylabel("Final Accuracy (%)")
     plt.legend(loc="upper right")
-    #import pdb; pdb.set_trace()
     yticks = plt.yticks()[0]
     if yticks.shape[0] <= PLOT_FIGSIZE[1]+2:
         plt.yticks(np.arange(yticks.min(), plt.yticks()[0].max(), (yticks[1]-yticks[0])/2))
-    plt.xticks(np.arange(0, downsamples.max()+0.05, 0.05))
+    plt.xticks(x_ticks)
     plt.grid(linestyle='dotted')
     plt.savefig(os.path.join(subfolderpath, "downsample_results_final_acc.png"))
     plt.close()
@@ -582,7 +590,7 @@ def downsample_experiment(
     yticks = plt.yticks()[0]
     if yticks.shape[0] <= PLOT_FIGSIZE[1]+2:
         plt.yticks(np.arange(yticks.min(), plt.yticks()[0].max(), (yticks[1]-yticks[0])/2))
-    plt.xticks(np.arange(0, downsamples.max()+0.05, 0.05))
+    plt.xticks(x_ticks)
     plt.grid(linestyle='dotted')
     plt.savefig(os.path.join(subfolderpath, "downsample_results_avg_acc.png"))
     plt.close()
@@ -598,7 +606,7 @@ def downsample_experiment(
     yticks = plt.yticks()[0]
     if yticks.shape[0] <= PLOT_FIGSIZE[1]+2:
         plt.yticks(np.arange(yticks.min(), plt.yticks()[0].max(), (yticks[1]-yticks[0])/2))
-    plt.xticks(np.arange(0, downsamples.max()+0.05, 0.05))
+    plt.xticks(x_ticks)
     plt.grid(linestyle='dotted')
     plt.savefig(os.path.join(subfolderpath, "downsample_results_total_training_time.png"))
     plt.close()
@@ -614,7 +622,7 @@ def downsample_experiment(
     yticks = plt.yticks()[0]
     if yticks.shape[0] <= PLOT_FIGSIZE[1]+2:
         plt.yticks(np.arange(yticks.min(), plt.yticks()[0].max(), (yticks[1]-yticks[0])/2))
-    plt.xticks(np.arange(0, downsamples.max()+0.05, 0.05))
+    plt.xticks(x_ticks)
     plt.grid(linestyle='dotted')
     plt.savefig(os.path.join(subfolderpath, "downsample_results_avg_training_time.png"))
     plt.close()
@@ -626,10 +634,22 @@ def downsample_experiment(
     plt.ylabel("Clause Reduction Percentage (%)")
     plt.legend(loc="upper left")
     plt.yticks(np.arange(0, 100, 10))
-    plt.xticks(np.arange(0, downsamples.max()+0.05, 0.05))
+    plt.xticks(x_ticks)
     plt.grid(linestyle='dotted')
     plt.savefig(os.path.join(subfolderpath, "downsample_results_reduction_percentage.png"))
     plt.close()
 
+    # plot mutual information
+    plt.figure(figsize=PLOT_FIGSIZE, dpi=PLOT_DPI)
+    plt.axhline(y=baseline_teacher_info, linestyle=':', color="orange", alpha=horiz_alpha, label="Teacher")
+    plt.axhline(y=baseline_student_info, linestyle=':', color="green", alpha=horiz_alpha, label="Student")
+    plt.plot(downsamples, all_mutual_information, marker='o', markersize=marker_size, label="Distilled")
+    plt.xlabel("Downsample Rate")
+    plt.ylabel("Mutual Information (nats)")
+    plt.legend(loc="upper right")
+    plt.xticks(x_ticks)
+    plt.grid(linestyle='dotted')
+    plt.savefig(os.path.join(subfolderpath, "downsample_results_mutual_information.png"))
+    plt.close()
 
     return all_outputs
