@@ -30,7 +30,8 @@
         "sklearn_student": 2.296903083257027,
         "info_teacher": -0.3495414450599577,
         "info_student": 5.355079282905295,
-        "info_distilled": 350.5621307739105
+        "info_distilled": -0.36030804358307406,
+        "old_info_distilled": 350.5621307739105
     },
     "params": {
         "teacher_num_clauses": 1600,

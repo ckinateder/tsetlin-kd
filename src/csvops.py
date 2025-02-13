@@ -185,14 +185,18 @@ def fix_mi_calculations():
         mi = experiment["mutual_information"]
         nc = experiment["params"]["teacher_num_clauses"]
         C_distilled = experiment["params"]["student_num_clauses"]
+
+        # calculate original number of literals (output of the teacher)
         if "IMDB" in file_path:
-            original_lit = nc*2
+            original_lit = nc*2 # sentiment analysis
         elif "MNIST" in file_path:
-            original_lit = nc*10
+            original_lit = nc*10 # 10-class classification
         else:
             raise
-
-        print(f"original num lits into distilled: {original_lit}") 
+        
+        #print(f"original num lits into distilled: {original_lit}") 
+        #print(f"num clauses dropped: {experiment['analysis']['num_clauses_dropped']}")
+        #print(f"num clauses dropped percentage: {experiment['analysis']['num_clauses_dropped_percentage']}")
         L_distilled = round((1-(experiment["analysis"]["num_clauses_dropped_percentage"])/100)*original_lit)
         print(f"L_distilled: {L_distilled}")
         info_distilled = L_distilled/C_distilled*np.log(L_distilled/C_distilled)
@@ -200,6 +204,12 @@ def fix_mi_calculations():
         print("erraneous mi:", mi["info_distilled"])
         print("corrected mi:", info_distilled)
 
+        # update the experiment with the corrected mi
+        experiment["mutual_information"]["old_info_distilled"] = experiment["mutual_information"]["info_distilled"]
+        experiment["mutual_information"]["info_distilled"] = info_distilled
+
+        #with open(file_path, 'w') as f:
+        #    json.dump(experiment, f, indent=4)
 
 
 if __name__ == "__main__":
