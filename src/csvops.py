@@ -5,6 +5,7 @@ import pandas as pd
 import json
 import os
 import matplotlib.pyplot as plt
+import numpy as np
 
 def iterate_over_file_in_folder(folder="experiments", file_extension=".json"):
     for root, dirs, files in os.walk(folder):
@@ -178,8 +179,30 @@ def make_condensed_accuracy_table():
     table = table.sort_values(by="experiment")
     table.to_csv(os.path.join("experiments", "accuracy_table.csv"), index=False)
         
+def fix_mi_calculations():
+    for experiment, file_path in iterate_over_file_in_folder():
+        print(file_path)
+        mi = experiment["mutual_information"]
+        nc = experiment["params"]["teacher_num_clauses"]
+        C_distilled = experiment["params"]["student_num_clauses"]
+        if "IMDB" in file_path:
+            original_lit = nc*2
+        elif "MNIST" in file_path:
+            original_lit = nc*10
+        else:
+            raise
+
+        print(f"original num lits into distilled: {original_lit}") 
+        L_distilled = round((1-(experiment["analysis"]["num_clauses_dropped_percentage"])/100)*original_lit)
+        print(f"L_distilled: {L_distilled}")
+        info_distilled = L_distilled/C_distilled*np.log(L_distilled/C_distilled)
+        
+        print("erraneous mi:", mi["info_distilled"])
+        print("corrected mi:", info_distilled)
+
+
 
 if __name__ == "__main__":
     #combine_into_cols()
-    make_condensed_accuracy_table()
+    fix_mi_calculations()
     #make_charts()       

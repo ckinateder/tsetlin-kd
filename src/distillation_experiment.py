@@ -349,7 +349,7 @@ def distillation_experiment(
     # compute our mutual information with L/C*log(L/C)
     L_student = X_train.shape[1] # number of literals for the student
     L_teacher = X_train.shape[1] # number of literals for the teacher
-    L_distilled = X_train_transformed.shape[1] # number of literals for the distilled
+    L_distilled = X_train_downsampled.shape[1] # number of literals for the distilled
     C_student = params['student_num_clauses'] # number of clauses for the student
     C_teacher = params['teacher_num_clauses'] # number of clauses for the teacher
     C_distilled = params['student_num_clauses'] # number of clauses for the distilled
@@ -358,9 +358,9 @@ def distillation_experiment(
     info_student = L_student/C_student*np.log(L_student/C_student)
     info_distilled = L_distilled/C_distilled*np.log(L_distilled/C_distilled)
 
-    print(f"Information (distilled <-> teacher) (L/C*log(L/C)): {info_teacher:.4f}")
-    print(f"Information (distilled <-> student) (L/C*log(L/C)): {info_student:.4f}")
-    print(f"Information (distilled <-> distilled) (L/C*log(L/C)): {info_distilled:.4f}")
+    print(f"Information (teacher) (L_T/C_T*log(L_T/C_T)): {info_teacher:.4f}")
+    print(f"Information (student) (L_S/C_S*log(L_S/C_S)): {info_student:.4f}")
+    print(f"Information (distilled) (L_D/C_D*log(L_D/C_D)): {info_distilled:.4f}")
 
     total_time = time() - exp_start
 
@@ -397,6 +397,14 @@ def distillation_experiment(
             "info_teacher": info_teacher,
             "info_student": info_student,
             "info_distilled": info_distilled
+        },
+        "helpful_for_calculations":{
+            "L_student": L_student,
+            "L_teacher": L_teacher,
+            "L_distilled": L_distilled,
+            "C_student": C_student,
+            "C_teacher": C_teacher,
+            "C_distilled": C_distilled
         },
         "params": params,
         "experiment_name": experiment_name,
@@ -469,7 +477,7 @@ def downsample_experiment(
 
     # check if the experiment already exists
     expected_id = validate_params(params, "ds")
-    if not overwrite and os.path.exists(os.path.join(subfolderpath, expected_id)):
+    if not overwrite and os.path.exists(os.path.join(subfolderpath, expected_id, "output.json")) and os.path.exists(os.path.join(subfolderpath, expected_id, "results.csv")):
         print(f"Experiment {expected_id} already exists, loading results")
         original_output = load_json(os.path.join(subfolderpath, expected_id, "output.json"))
         original_results_pd = pd.read_csv(os.path.join(subfolderpath, expected_id, "results.csv"), index_col=0)
@@ -510,7 +518,8 @@ def downsample_experiment(
         # remove failed downsamples from downsamples list
         downsamples = [d for i, d in enumerate(downsamples) if i not in failed_downsamples]
         all_outputs = [o for i, o in enumerate(all_outputs) if i not in failed_downsamples]
-
+    
+    downsamples = np.array(downsamples)
     print("Done training distilled models with downsampling")
 
     # get original accuracy
@@ -518,6 +527,7 @@ def downsample_experiment(
     original_avg_acc = original_output["analysis"]["avg_acc_test_distilled"]
     original_total_training_time = original_output["analysis"]["sum_time_train_distilled"]
     original_avg_training_time = original_output["analysis"]["avg_time_train_distilled"]
+
     original_reduction_percentage = 0
 
     # now plot the results. Y value is average accuracy of distilled model plotted over different downsamples
@@ -537,9 +547,10 @@ def downsample_experiment(
     all_total_training_time = np.array([original_total_training_time] + [output["analysis"]["sum_time_train_distilled"] for output in all_outputs])
     all_avg_training_time = np.array([original_avg_training_time] + [output["analysis"]["avg_time_train_distilled"] for output in all_outputs])
     all_reduction_percentage = np.array([original_reduction_percentage] + [output["analysis"]["num_clauses_dropped_percentage"] for output in all_outputs])
-    downsamples = np.array(downsamples)
 
-    # plots
+    # get mutual information
+
+    ## plots
     horiz_alpha = 0.8
     marker_size = 3
 
@@ -619,5 +630,6 @@ def downsample_experiment(
     plt.grid(linestyle='dotted')
     plt.savefig(os.path.join(subfolderpath, "downsample_results_reduction_percentage.png"))
     plt.close()
+
 
     return all_outputs

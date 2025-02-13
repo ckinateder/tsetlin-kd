@@ -42,11 +42,11 @@ if __name__ == "__main__":
     # run downsample experiments
     # this goes (dataset, name, params, downsamples, kwargs)
     downsample_experiments = [
-        (fashion_mnist_dataset, "FashionMNIST-Downsample", {"teacher_num_clauses": 2000, "student_num_clauses": 100, "T": 30, "s": 10.0,"teacher_epochs": 20, "student_epochs": 80 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
-        (mnist3d_dataset, "MNIST3D-Downsample", {"teacher_num_clauses": 2000, "student_num_clauses": 300, "T": 60, "s": 3.0, "teacher_epochs": 15, "student_epochs": 45 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35], {"overwrite": False}),
-        (mnist_dataset, "MNIST-Downsample", {"teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 80 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35], {"overwrite": False}),
-        (kmnist_dataset, "KMNIST-Downsample", {"teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 600, "s": 5, "teacher_epochs": 20, "student_epochs": 60 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
-        (imdb_dataset, "IMDB-Downsample", {"teacher_num_clauses": 10000, "student_num_clauses": 2000, "T": 80*100, "s": 10.0, "teacher_epochs": 30, "student_epochs": 60 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30], {"overwrite": False}),
+        #(fashion_mnist_dataset, "FashionMNIST-Downsample", {"teacher_num_clauses": 2000, "student_num_clauses": 100, "T": 30, "s": 10.0,"teacher_epochs": 20, "student_epochs": 80 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
+        #(mnist3d_dataset, "MNIST3D-Downsample", {"teacher_num_clauses": 2000, "student_num_clauses": 300, "T": 60, "s": 3.0, "teacher_epochs": 15, "student_epochs": 45 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35], {"overwrite": False}),
+        #(mnist_dataset, "MNIST-Downsample", {"teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 80 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35], {"overwrite": False}),
+        #(kmnist_dataset, "KMNIST-Downsample", {"teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 600, "s": 5, "teacher_epochs": 20, "student_epochs": 60 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
+        (imdb_dataset, "IMDB-Downsample", {"teacher_num_clauses": 20000, "student_num_clauses": 2000, "T": 80*100, "s": 10.0, "teacher_epochs": 30, "student_epochs": 60 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30], {"overwrite": False}),
     ]
     
     print("Running downsample experiments")
