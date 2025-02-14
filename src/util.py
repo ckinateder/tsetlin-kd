@@ -30,3 +30,11 @@ def make_dir(dir_path, overwrite=False):
 def rm_file(file_path):
     if os.path.exists(file_path):
         os.remove(file_path)
+
+def load_or_create(file_path:str, create_func):
+    if os.path.exists(file_path):
+        return load_pkl(file_path)
+    else:
+        data = create_func()
+        save_pkl(data, file_path)
+        return data

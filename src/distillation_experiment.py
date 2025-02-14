@@ -198,6 +198,7 @@ def distillation_experiment(
             - Total experiment time
     """
     exp_start = time()
+    print(f"Starting experiment {experiment_name} at {exp_start}")
     # check that the data is valid
     dataset.validate_lengths()
     X_train, Y_train, X_test, Y_test = dataset.get_data()
@@ -208,7 +209,7 @@ def distillation_experiment(
             print(f"Parameter {key} not specified, using default value {value}")
             params[key] = value
 
-    print(f"Running {experiment_name} with params: {params}")
+    print(f"Using params: {params}")
 
     # get experiment id
     experiment_id = validate_params(params, experiment_name)
@@ -342,6 +343,14 @@ def distillation_experiment(
     teacher_prediction, teacher_class_sums = baseline_teacher_tm.predict_class_sums_2d(X_test)
     distilled_prediction, distilled_class_sums = distilled_tm.predict_class_sums_2d(X_test_transformed)
 
+    # sklearn mutual information
+    mi_true_student = mutual_info_score(Y_test, student_prediction)
+    mi_true_teacher = mutual_info_score(Y_test, teacher_prediction)
+    mi_true_distilled = mutual_info_score(Y_test, distilled_prediction)
+    mi_teacher_distilled = mutual_info_score(teacher_prediction, distilled_prediction)
+    mi_student_distilled = mutual_info_score(student_prediction, distilled_prediction)
+    mi_teacher_student = mutual_info_score(teacher_prediction, student_prediction)
+
     # compute our mutual information with L/C*log(L/C)
     L_student = X_train.shape[1] # number of literals for the student
     L_teacher = X_train.shape[1] # number of literals for the teacher
@@ -388,9 +397,15 @@ def distillation_experiment(
             "num_clauses_dropped_percentage": reduction_percentage
         },
         "mutual_information": {
-            "info_teacher": info_teacher,
-            "info_student": info_student,
-            "info_distilled": info_distilled
+            "info_teacher": info_teacher, # calculated using L/C*log(L/C)
+            "info_student": info_student, # calculated using L/C*log(L/C)
+            "info_distilled": info_distilled, # calculated using L/C*log(L/C)
+            "mi_true_student": mi_true_student, # calculated using sklearn
+            "mi_true_teacher": mi_true_teacher, # calculated using sklearn
+            "mi_true_distilled": mi_true_distilled, # calculated using sklearn
+            "mi_teacher_distilled": mi_teacher_distilled, # calculated using sklearn
+            "mi_student_distilled": mi_student_distilled, # calculated using sklearn
+            "mi_teacher_student": mi_teacher_student # calculated using sklearn
         },
         "helpful_for_calculations":{
             "L_student": L_student,
@@ -439,6 +454,7 @@ def downsample_experiment(
     downsamples=DOWNSAMPLE_DEFAULTS,
     folderpath=DEFAULT_FOLDERPATH,
     overwrite: bool = True,
+    save_all: bool = False
 ) -> dict:
     """
     Run a downsample experiment comparing teacher, student, and distilled models.
@@ -452,7 +468,8 @@ def downsample_experiment(
         params (dict, optional): Parameters for the experiment. Defaults to DOWNSAMPLE_DEFAULTS.
         downsamples (list, optional): List of downsample rates to use for the experiment. Defaults to DOWNSAMPLE_DEFAULTS.
         folderpath (str, optional): Path to save experiment results. Defaults to DEFAULT_FOLDERPATH.
-
+        overwrite (bool, optional): Whether to overwrite existing experiment results. Defaults to True.
+        save_all (bool, optional): Whether to save all models. Defaults to True.
     Returns:
         dict: Dictionary containing experiment results including:
             - Teacher, student and distilled model accuracies
@@ -501,7 +518,7 @@ def downsample_experiment(
                                                pretrained_teacher_model=pretrained_teacher_model, 
                                                prefilled_results=original_results_pd,
                                                overwrite=overwrite,
-                                               save_all=False)
+                                               save_all=save_all)
         all_outputs.append(output_dict)
         if output_dict is None:
             print(f"Skipping downsample {downsample} because it failed")
@@ -521,7 +538,7 @@ def downsample_experiment(
     original_avg_acc = original_output["analysis"]["avg_acc_test_distilled"]
     original_total_training_time = original_output["analysis"]["sum_time_train_distilled"]
     original_avg_training_time = original_output["analysis"]["avg_time_train_distilled"]
-    original_mutual_information = original_output["mutual_information"]["info_distilled"]
+    original_mi_true_distilled = original_output["mutual_information"]["mi_true_distilled"]
     original_reduction_percentage = 0
 
     # now plot the results. Y value is average accuracy of distilled model plotted over different downsamples
@@ -534,8 +551,8 @@ def downsample_experiment(
     baseline_teacher_total_training_time = original_output["analysis"]["sum_time_train_teacher"]
     baseline_student_avg_training_time = original_output["analysis"]["avg_time_train_student"]
     baseline_teacher_avg_training_time = original_output["analysis"]["avg_time_train_teacher"]
-    baseline_student_info = original_output["mutual_information"]["info_student"]
-    baseline_teacher_info = original_output["mutual_information"]["info_teacher"]
+    baseline_mi_true_student = original_output["mutual_information"]["mi_true_student"]
+    baseline_mi_true_teacher = original_output["mutual_information"]["mi_true_teacher"]
 
     # get final and average distilled accuracy
     all_final_acc = np.array([original_final_acc] + [output["analysis"]["final_acc_test_distilled"] for output in all_outputs])
@@ -544,9 +561,9 @@ def downsample_experiment(
     all_avg_training_time = np.array([original_avg_training_time] + [output["analysis"]["avg_time_train_distilled"] for output in all_outputs])
     all_reduction_percentage = np.array([original_reduction_percentage] + [output["analysis"]["num_clauses_dropped_percentage"] for output in all_outputs])
 
-    # get mutual information
-    all_mutual_information = np.array([original_mutual_information] + [output["mutual_information"]["info_distilled"] for output in all_outputs])
-    
+    # get log information
+    all_mi_true_distilled = np.array([original_mi_true_distilled] + [output["mutual_information"]["mi_true_distilled"] for output in all_outputs])
+
     # put into dataframe
     all_results = pd.DataFrame({
         "downsample": downsamples,
@@ -554,7 +571,7 @@ def downsample_experiment(
         "avg_acc": all_avg_acc,
         "total_training_time": all_total_training_time,
         "avg_training_time": all_avg_training_time,
-        "mutual_information": all_mutual_information
+        "mi_true_distilled": all_mi_true_distilled
     })
     all_results.to_csv(os.path.join(subfolderpath, "downsample_results.csv"))
 
@@ -639,11 +656,11 @@ def downsample_experiment(
     plt.savefig(os.path.join(subfolderpath, "downsample_results_reduction_percentage.png"))
     plt.close()
 
-    # plot mutual information
+    # plot information
     plt.figure(figsize=PLOT_FIGSIZE, dpi=PLOT_DPI)
-    plt.axhline(y=baseline_teacher_info, linestyle=':', color="orange", alpha=horiz_alpha, label="Teacher")
-    plt.axhline(y=baseline_student_info, linestyle=':', color="green", alpha=horiz_alpha, label="Student")
-    plt.plot(downsamples, all_mutual_information, marker='o', markersize=marker_size, label="Distilled")
+    plt.axhline(y=baseline_mi_true_teacher, linestyle=':', color="orange", alpha=horiz_alpha, label="Teacher")
+    plt.axhline(y=baseline_mi_true_student, linestyle=':', color="green", alpha=horiz_alpha, label="Student")
+    plt.plot(downsamples, all_mi_true_distilled, marker='o', markersize=marker_size, label="Distilled")
     plt.xlabel("Downsample Rate")
     plt.ylabel("Mutual Information (nats)")
     plt.legend(loc="upper right")
@@ -651,5 +668,9 @@ def downsample_experiment(
     plt.grid(linestyle='dotted')
     plt.savefig(os.path.join(subfolderpath, "downsample_results_mutual_information.png"))
     plt.close()
+
+    # save params
+    params_path = os.path.join(subfolderpath, "params.json")
+    save_json(params, params_path)
 
     return all_outputs
