@@ -1,13 +1,13 @@
-import h5py
-import numpy as np
-from distillation_experiment import distillation_experiment, downsample_experiment
-from torchvision import transforms
+from distillation import distillation_experiment
+from downsample import downsample_experiment
 import os
-import random
 from datasets import MNISTDataset, MNIST3DDataset, FashionMNISTDataset, KMNISTDataset, IMDBDataset
-from util import save_pkl, load_pkl, load_or_create
+from util import load_or_create
+import numpy as np
+
 # set seeds
 np.random.seed(0)
+
 """
 So far, these are the best params:
 
