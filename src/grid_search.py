@@ -17,6 +17,7 @@ def grid_search(
     specificity_values=[10.0, 15.0, 20.0],
     other_params={},
     epochs=5,
+    random_search=False,
 ):
     """
     Perform grid search to find optimal Tsetlin Machine parameters.
@@ -46,6 +47,11 @@ def grid_search(
     current_iter = 0
 
     # Grid search
+    if random_search:
+        num_clauses_values = np.random.choice(num_clauses_values, size=len(num_clauses_values), replace=False)
+        threshold_values = np.random.choice(threshold_values, size=len(threshold_values), replace=False)
+        specificity_values = np.random.choice(specificity_values, size=len(specificity_values), replace=False)
+
     for num_clauses in num_clauses_values:
         for threshold in threshold_values:
             for specificity in specificity_values:
@@ -117,47 +123,13 @@ if __name__ == "__main__":
         Y_train,
         X_test,
         Y_test,
-        num_clauses_values=[1000],
+        num_clauses_values=[2000],
         threshold_values=[5, 8, 10, 30, 40, 50],
-        specificity_values=[1.5, 3.0, 7.5, 10.0, 15.0, 40],
+        specificity_values=[10.0, 15.0, 25.0, 40.0],
         epochs=5,
+        random_search=True,
     )
 
-    print(best_params)
-
-    # Load and prepare data with mnist
-    (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
-    X_train = np.where(X_train.reshape((X_train.shape[0], 28*28)) > 75, 1, 0) 
-    X_test = np.where(X_test.reshape((X_test.shape[0], 28*28)) > 75, 1, 0) 
-
-    best_params = grid_search(
-        X_train,
-        Y_train,
-        X_test,
-        Y_test,
-        num_clauses_values=[1600],
-        threshold_values=[5, 8, 10, 30, 40, 50],
-        specificity_values=[1.5, 3.0, 6.0, 7.5, 10.0, 15.0],
-        epochs=10,
-    )
-
-    print(best_params)
-
-    """### Load IMDB data"""
-    (X_train, Y_train), (X_test, Y_test) = prepare_imdb_data()
-    print(f"X_train shape: {X_train.shape}, Y_train shape: {Y_train.shape}")
-    print(f"X_test shape: {X_test.shape}, Y_test shape: {Y_test.shape}")
-
-    best_params = grid_search(
-        X_train,
-        Y_train,
-        X_test,
-        Y_test,
-        num_clauses_values=[500],
-        threshold_values=[80*100],
-        specificity_values=[1.5, 3.0, 6.0],
-        epochs=5,
-    )
     print(best_params)
 
     # Load and prepare data with mnist-3d
@@ -181,9 +153,9 @@ if __name__ == "__main__":
         Y_train,
         X_test,
         Y_test,
-        num_clauses_values=[1000],
+        num_clauses_values=[1500],
         threshold_values=[20, 45, 60, 100],
-        specificity_values=[1.5, 3.0, 8.0],
+        specificity_values=[3.0, 8.0, 15.0, 30.0],
         epochs=5,
     )
 

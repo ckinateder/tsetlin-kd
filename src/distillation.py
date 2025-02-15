@@ -12,6 +12,45 @@ from pyTsetlinMachineParallel.tm import MultiClassTsetlinMachine
 from datasets import Dataset
 from __init__ import *
 
+def get_downsample_indices(X:np.ndarray, downsample: float, symmetric: bool = True) -> np.ndarray:
+    """
+    Downsample clauses by removing those that are too active or too inactive.
+
+    This function performs clause pruning by removing clauses that activate too frequently or too rarely.
+    Clauses that are too active (above over threshold) are considered too specific and not generalizable.
+    Clauses that are too inactive (below under threshold) are considered too general and not specific enough.
+
+    This function returns the *indices* of where to drop - it does not actually drop the clauses
+
+    Args:
+        X (np.ndarray): Data transformed by teacher TM's clauses
+        downsample (float): Drop clauses that are activated in (1 - downsample)*100% of the time. 
+            If downsample is 0.05, then any clause that is activated in 95% of the time is dropped.
+        symmetric (bool): If True, ALSO drop clauses that are inactive in (1 - downsample)*100% of the time.
+            This doesn't usually make a difference to the distilled model's performance.
+
+    Returns:
+        np.ndarray: Indices of clauses to drop
+    """
+    # drop clauses that are too active or too inactive
+    # this is a form of data mining where we seek out the clauses that are most informative
+    # we drop the clauses that are too active because they are too specific and not generalizable
+    # this should reduce the number of clauses and make the student learn faster
+    # this works pretty well with downsample = 0.05
+    assert downsample >= 0 and downsample < 1, "Downsample should be a float between 0 and 1"
+    sums = np.sum(X, axis=0) # shape is (num_classes*num_clauses)
+    normalized_sums = sums / X.shape[0] # get the sum of each clause over all samples divided by the number of samples
+
+    # find where to drop
+    over_clauses = np.where(normalized_sums > (1 - downsample))[0] # clauses that are activated in (1 - downsample)*100% of the time
+    under_clauses = np.where(normalized_sums < downsample)[0] # clauses that are inactive (1 - downsample)*100% of the time
+    if symmetric:
+        clauses_to_drop = np.concatenate([over_clauses, under_clauses])
+    else:
+        clauses_to_drop = over_clauses
+
+    return clauses_to_drop
+
 def downsample_clauses(X_train_transformed:np.ndarray, X_test_transformed:np.ndarray, downsample: float, symmetric: bool = True) -> tuple[np.ndarray, np.ndarray, int]:
     """
     Downsample clauses by removing those that are too active or too inactive.
@@ -39,17 +78,7 @@ def downsample_clauses(X_train_transformed:np.ndarray, X_test_transformed:np.nda
     # we drop the clauses that are too active because they are too specific and not generalizable
     # this should reduce the number of clauses and make the student learn faster
     # this works pretty well with downsample = 0.05
-    assert downsample >= 0 and downsample < 1, "Downsample should be a float between 0 and 1"
-    sums = np.sum(X_train_transformed, axis=0) # shape is (num_classes*num_clauses)
-    normalized_sums = sums / X_train_transformed.shape[0] # get the sum of each clause over all samples divided by the number of samples
-
-    # find where to drop
-    over_clauses = np.where(normalized_sums > (1 - downsample))[0] # clauses that are activated in (1 - downsample)*100% of the time
-    under_clauses = np.where(normalized_sums < downsample)[0] # clauses that are inactive (1 - downsample)*100% of the time
-    if symmetric:
-        clauses_to_drop = np.concatenate([over_clauses, under_clauses])
-    else:
-        clauses_to_drop = over_clauses
+    clauses_to_drop = get_downsample_indices(X_train_transformed, downsample, symmetric=symmetric)
 
     X_train_reduced = np.delete(X_train_transformed, clauses_to_drop, axis=1) # delete the clauses from the training data
     X_test_reduced = np.delete(X_test_transformed, clauses_to_drop, axis=1) # delete the clauses from the testing data
@@ -155,11 +184,13 @@ def distillation_experiment(
             If None, the teacher model is loaded from the given path. Else, the teacher model is trained from scratch.
 
     Returns:
-        dict: Dictionary containing experiment results including:
-            - Teacher, student and distilled model accuracies
-            - Training and testing times
-            - Number of clauses dropped during distillation
-            - Total experiment time
+        tuple: Tuple containing:
+            - Dictionary containing experiment results including:
+                - Teacher, student and distilled model accuracies
+                - Training and testing times
+                - Number of clauses dropped during distillation
+                - Total experiment time
+            - pd.DataFrame: Results dataframe
     """
     exp_start = time()
     print(f"Starting experiment {experiment_name} at {exp_start}")
@@ -181,14 +212,20 @@ def distillation_experiment(
 
     # create an experiment directory
     if not overwrite and os.path.exists(os.path.join(folderpath, experiment_id)):
-        # check if output.json, results.csv, and accuracy.png exist
-        if os.path.exists(os.path.join(folderpath, experiment_id, "output.json")) and \
-           os.path.exists(os.path.join(folderpath, experiment_id, "results.csv")) and \
-           os.path.exists(os.path.join(folderpath, experiment_id, "accuracy.png")):
+        # Check if experiment files exist, and if save_all, check model files exist too
+        basic_files_exist = all(os.path.exists(os.path.join(folderpath, experiment_id, f)) 
+                              for f in [OUTPUT_JSON_PATH, RESULTS_CSV_PATH, ACCURACY_PNG_PATH])
+        
+        model_files_exist = not save_all or all(os.path.exists(os.path.join(folderpath, experiment_id, f)) 
+                                               for f in [TEACHER_BASELINE_MODEL_PATH, 
+                                                       STUDENT_BASELINE_MODEL_PATH,
+                                                       DISTILLED_MODEL_PATH])
+        
+        if basic_files_exist and model_files_exist:
             print(f"Experiment {experiment_id} already exists, skipping")
             # load the results
-            results = pd.read_csv(os.path.join(folderpath, experiment_id, "results.csv"))
-            output = load_json(os.path.join(folderpath, experiment_id, "output.json"))
+            results = pd.read_csv(os.path.join(folderpath, experiment_id, RESULTS_CSV_PATH))
+            output = load_json(os.path.join(folderpath, experiment_id, OUTPUT_JSON_PATH))
             return output, results
 
     make_dir(os.path.join(folderpath, experiment_id), overwrite=True)
@@ -278,6 +315,7 @@ def distillation_experiment(
     print(f"Getting offline clause outputs from teacher model")
     X_train_transformed = teacher_tm.transform(X_train)
     X_test_transformed = teacher_tm.transform(X_test)
+
     print(f"Downsampling clauses with downsample rate {params['downsample']}")
     X_train_downsampled, X_test_downsampled, num_clauses_dropped = downsample_clauses(X_train_transformed, X_test_transformed, params['downsample'], symmetric=True)
     reduction_percentage = 100*(num_clauses_dropped/X_train_transformed.shape[1]) # calculate the percentage of clauses dropped
@@ -388,8 +426,8 @@ def distillation_experiment(
 
     # save output
     fpath = os.path.join(folderpath, experiment_id)
-    save_json(output, os.path.join(fpath, "output.json"))
-    results.to_csv(os.path.join(fpath, "results.csv"))
+    save_json(output, os.path.join(fpath, OUTPUT_JSON_PATH))
+    results.to_csv(os.path.join(fpath, RESULTS_CSV_PATH))
     if save_all:
         save_pkl(baseline_teacher_tm, os.path.join(folderpath, experiment_id, TEACHER_BASELINE_MODEL_PATH))
         save_pkl(baseline_student_tm, os.path.join(folderpath, experiment_id, STUDENT_BASELINE_MODEL_PATH))
@@ -405,7 +443,7 @@ def distillation_experiment(
     plt.xticks(range(0, len(results), 5))
     plt.legend(loc="upper left")
     plt.grid(linestyle='dotted')
-    plt.savefig(os.path.join(fpath, "accuracy.png"))
+    plt.savefig(os.path.join(fpath, ACCURACY_PNG_PATH))
     plt.close()
 
     return output, results
