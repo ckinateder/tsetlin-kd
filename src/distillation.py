@@ -249,6 +249,9 @@ def distillation_experiment(
         assert results.index.to_list() == list(range(params['combined_epochs'])), \
             f"Prefilled results index does not match expected index: {results.index.to_list()} != {range(params['combined_epochs'])}"
 
+        # make sure it has no nan values
+        assert not results.isna().any().any(), "Prefilled results has nan values"
+
         # delete entries after params['teacher_epochs'] for 'acc_test_distilled', 'time_train_distilled', 'time_test_distilled' columns
         results.loc[params['teacher_epochs']:, ACC_TEST_DISTILLED] = np.nan
         results.loc[params['teacher_epochs']:, TIME_TRAIN_DISTILLED] = np.nan 

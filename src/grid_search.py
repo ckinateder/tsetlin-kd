@@ -5,7 +5,8 @@ from time import time
 from tqdm import tqdm, trange
 import h5py
 import os
-from datasets import prepare_imdb_data
+from datasets import prepare_imdb_data, IMDBDataset
+from util import load_or_create
 
 def grid_search(
     X_train,
@@ -113,10 +114,13 @@ def grid_search(
 
 
 if __name__ == "__main__":
-    # Load and prepare data with fashion mnist
-    (X_train, Y_train), (X_test, Y_test) = fashion_mnist.load_data()
-    X_train = np.where(X_train.reshape((X_train.shape[0], 28*28)) > 75, 1, 0) 
-    X_test = np.where(X_test.reshape((X_test.shape[0], 28*28)) > 75, 1, 0) 
+    # do IMDB grid search
+    imdb_dataset = load_or_create(os.path.join("data", "imdb_dataset.pkl"), IMDBDataset)
+
+    X_train, Y_train, X_test, Y_test = imdb_dataset.get_data()
+
+    print(f"X_train shape: {X_train.shape}, Y_train shape: {Y_train.shape}")
+    print(f"X_test shape: {X_test.shape}, Y_test shape: {Y_test.shape}")
 
     best_params = grid_search(
         X_train,
@@ -124,13 +128,10 @@ if __name__ == "__main__":
         X_test,
         Y_test,
         num_clauses_values=[2000],
-        threshold_values=[5, 8, 10, 30, 40, 50],
-        specificity_values=[10.0, 15.0, 25.0, 40.0],
+        threshold_values=[500, 2000, 4000, 6000, 8000, 10000],
+        specificity_values=[3, 5.0,10.0, 20.0, 40.0],
         epochs=5,
-        random_search=True,
     )
-
-    print(best_params)
 
     # Load and prepare data with mnist-3d
     """### Load MNIST-3D data"""
@@ -153,10 +154,28 @@ if __name__ == "__main__":
         Y_train,
         X_test,
         Y_test,
-        num_clauses_values=[1500],
+        num_clauses_values=[150, 1500],
         threshold_values=[20, 45, 60, 100],
-        specificity_values=[3.0, 8.0, 15.0, 30.0],
+        specificity_values=[3.0, 8.0, 15.0, 30.0, 50.0],
         epochs=5,
+    )
+
+    print(best_params)
+    # Load and prepare data with fashion mnist
+    (X_train, Y_train), (X_test, Y_test) = fashion_mnist.load_data()
+    X_train = np.where(X_train.reshape((X_train.shape[0], 28*28)) > 75, 1, 0) 
+    X_test = np.where(X_test.reshape((X_test.shape[0], 28*28)) > 75, 1, 0) 
+
+    best_params = grid_search(
+        X_train,
+        Y_train,
+        X_test,
+        Y_test,
+        num_clauses_values=[750],
+        threshold_values=[5, 8, 10, 30, 40, 50],
+        specificity_values=[10.0, 15.0, 25.0, 40.0],
+        epochs=5,
+        random_search=True,
     )
 
     print(best_params)

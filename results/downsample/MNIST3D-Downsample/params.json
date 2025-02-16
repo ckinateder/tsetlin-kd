@@ -1,0 +1,12 @@
+{
+    "teacher_num_clauses": 1500,
+    "student_num_clauses": 50,
+    "T": 100,
+    "s": 3.0,
+    "teacher_epochs": 20,
+    "student_epochs": 70,
+    "downsample": 0.45,
+    "combined_epochs": 90,
+    "weighted_clauses": true,
+    "number_of_state_bits": 8
+}
