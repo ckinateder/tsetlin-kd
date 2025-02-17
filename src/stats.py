@@ -1,4 +1,6 @@
 import numpy as np
+from scipy.special import softmax, kl_div
+import warnings
 
 _OFFSET = 1e-12
 
@@ -31,36 +33,9 @@ def joint_probs(probs_1, probs_2):
     for i in range(probs_1.shape[0]):
         joint[i] = np.outer(probs_1[i], probs_2[i])
     return joint
-    
-def kl_divergence(p, q):
-  """
-  Calculates the KL divergence between two probability distributions.
 
-  Args:
-    p (numpy array): The first probability distribution.
-    q (numpy array): The second probability distribution.
-
-  Returns:
-    float: The KL divergence.
-  """
-
-  # Ensure probabilities are non-zero
-  p = np.where(p == 0, 1e-10, p) 
-  q = np.where(q == 0, 1e-10, q)
-
-  return np.sum(p * np.log(p / q))
-
-# Mutual information calculation
-def mutual_information(teacher_probs, student_probs, joint_probs):
+def calculate_information(L:int, C:int) -> float:
     """
-    I(X;Y) = H(X) - H(X|Y) = H(Y) - H(Y|X)
+    Calculate the information of a system with L literals (going into the system) and C clauses.
     """
-    # H(X)
-    H_teacher = np.array([entropy(probs) for probs in teacher_probs])
-    # H(Y)
-    H_student = np.array([entropy(probs) for probs in student_probs])
-    # H(X|Y)
-
-    
-
-    return 0
+    return 1/(L*C)*np.log(1/(L*C))

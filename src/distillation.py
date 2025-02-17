@@ -11,6 +11,9 @@ from tqdm import tqdm
 from pyTsetlinMachineParallel.tm import MultiClassTsetlinMachine
 from datasets import Dataset
 from __init__ import *
+from stats import calculate_information
+
+
 
 def get_downsample_indices(X:np.ndarray, downsample: float, symmetric: bool = True) -> np.ndarray:
     """
@@ -341,20 +344,12 @@ def distillation_experiment(
 
     print(f'Teacher-student training time: {end-start:.2f} s')
 
+    if save_all:
+        save_pkl(baseline_teacher_tm, os.path.join(folderpath, experiment_id, TEACHER_BASELINE_MODEL_PATH))
+        save_pkl(baseline_student_tm, os.path.join(folderpath, experiment_id, STUDENT_BASELINE_MODEL_PATH))
+        save_pkl(distilled_tm, os.path.join(folderpath, experiment_id, DISTILLED_MODEL_PATH))
+    
     print(f"Calculating information transfer")
-    # calculate information transfer
-    # get outputs
-    student_prediction, student_class_sums = baseline_student_tm.predict_class_sums_2d(X_test)
-    teacher_prediction, teacher_class_sums = baseline_teacher_tm.predict_class_sums_2d(X_test)
-    distilled_prediction, distilled_class_sums = distilled_tm.predict_class_sums_2d(X_test_transformed)
-
-    # sklearn mutual information
-    mi_true_student = mutual_info_score(Y_test, student_prediction)
-    mi_true_teacher = mutual_info_score(Y_test, teacher_prediction)
-    mi_true_distilled = mutual_info_score(Y_test, distilled_prediction)
-    mi_teacher_distilled = mutual_info_score(teacher_prediction, distilled_prediction)
-    mi_student_distilled = mutual_info_score(student_prediction, distilled_prediction)
-    mi_teacher_student = mutual_info_score(teacher_prediction, student_prediction)
 
     # compute our mutual information with L/C*log(L/C)
     L_student = X_train.shape[1] # number of literals for the student
@@ -364,13 +359,10 @@ def distillation_experiment(
     C_teacher = params['teacher_num_clauses'] # number of clauses for the teacher
     C_distilled = params['student_num_clauses'] # number of clauses for the distilled
     
-    info_teacher = L_teacher/C_teacher*np.log(L_teacher/C_teacher)
-    info_student = L_student/C_student*np.log(L_student/C_student)
-    info_distilled = L_distilled/C_distilled*np.log(L_distilled/C_distilled)
-
-    print(f"Information (teacher) (L_T/C_T*log(L_T/C_T)): {info_teacher:.4f}")
-    print(f"Information (student) (L_S/C_S*log(L_S/C_S)): {info_student:.4f}")
-    print(f"Information (distilled) (L_D/C_D*log(L_D/C_D)): {info_distilled:.4f}")
+    # calculate information
+    I_student = calculate_information(L_student, C_student)
+    I_teacher = calculate_information(L_teacher, C_teacher)
+    I_distilled = calculate_information(L_distilled, C_distilled)
 
     total_time = time() - exp_start
 
@@ -402,15 +394,9 @@ def distillation_experiment(
             "num_clauses_dropped_percentage": reduction_percentage
         },
         "mutual_information": {
-            "info_teacher": info_teacher, # calculated using L/C*log(L/C)
-            "info_student": info_student, # calculated using L/C*log(L/C)
-            "info_distilled": info_distilled, # calculated using L/C*log(L/C)
-            "mi_true_student": mi_true_student, # calculated using sklearn
-            "mi_true_teacher": mi_true_teacher, # calculated using sklearn
-            "mi_true_distilled": mi_true_distilled, # calculated using sklearn
-            "mi_teacher_distilled": mi_teacher_distilled, # calculated using sklearn
-            "mi_student_distilled": mi_student_distilled, # calculated using sklearn
-            "mi_teacher_student": mi_teacher_student # calculated using sklearn
+            "I_student": I_student,
+            "I_teacher": I_teacher,
+            "I_distilled": I_distilled
         },
         "helpful_for_calculations":{
             "L_student": L_student,
@@ -431,11 +417,6 @@ def distillation_experiment(
     fpath = os.path.join(folderpath, experiment_id)
     save_json(output, os.path.join(fpath, OUTPUT_JSON_PATH))
     results.to_csv(os.path.join(fpath, RESULTS_CSV_PATH))
-    if save_all:
-        save_pkl(baseline_teacher_tm, os.path.join(folderpath, experiment_id, TEACHER_BASELINE_MODEL_PATH))
-        save_pkl(baseline_student_tm, os.path.join(folderpath, experiment_id, STUDENT_BASELINE_MODEL_PATH))
-        save_pkl(distilled_tm, os.path.join(folderpath, experiment_id, DISTILLED_MODEL_PATH))
-
     # plot results and save
     plt.figure(figsize=PLOT_FIGSIZE, dpi=PLOT_DPI)
     plt.plot(results[ACC_TEST_DISTILLED], label="Distilled")
@@ -443,7 +424,10 @@ def distillation_experiment(
     plt.plot(results[ACC_TEST_STUDENT], label="Student", alpha=0.5)
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy (%)")
-    plt.xticks(range(0, len(results), 5))
+    if len(results) < 100:
+        plt.xticks(range(0, len(results), 5))
+    else:
+        plt.xticks(range(0, len(results), 10))
     plt.legend(loc="upper left")
     plt.grid(linestyle='dotted')
     plt.savefig(os.path.join(fpath, ACCURACY_PNG_PATH))

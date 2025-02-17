@@ -6,7 +6,7 @@ OUTPUT_JSON_PATH = "output.json"
 RESULTS_CSV_PATH = "results.csv"
 ACCURACY_PNG_PATH = "accuracy.png"
 DEFAULT_FOLDERPATH = "experiments"
-
+DATASET_FOLDERPATH = "data"
 ACC_TEST_TEACHER = "acc_test_teacher"
 ACC_TEST_STUDENT = "acc_test_student"
 ACC_TEST_DISTILLED = "acc_test_distilled"
