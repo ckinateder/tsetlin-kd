@@ -98,7 +98,7 @@ def downsample_experiment(
     original_avg_acc = original_output["analysis"]["avg_acc_test_distilled"]
     original_total_training_time = original_output["analysis"]["sum_time_train_distilled"]
     original_avg_training_time = original_output["analysis"]["avg_time_train_distilled"]
-    original_mi_true_distilled = original_output["mutual_information"]["mi_true_distilled"]
+    original_i_distilled = original_output["mutual_information"]["I_distilled"]
     original_reduction_percentage = 0
 
     # now plot the results. Y value is average accuracy of distilled model plotted over different downsamples
@@ -111,8 +111,8 @@ def downsample_experiment(
     baseline_teacher_total_training_time = original_output["analysis"]["sum_time_train_teacher"]
     baseline_student_avg_training_time = original_output["analysis"]["avg_time_train_student"]
     baseline_teacher_avg_training_time = original_output["analysis"]["avg_time_train_teacher"]
-    baseline_mi_true_student = original_output["mutual_information"]["mi_true_student"]
-    baseline_mi_true_teacher = original_output["mutual_information"]["mi_true_teacher"]
+    baseline_i_student = original_output["mutual_information"]["I_student"]
+    baseline_i_teacher = original_output["mutual_information"]["I_teacher"]
 
     # get final and average distilled accuracy
     all_final_acc = np.array([original_final_acc] + [output["analysis"]["final_acc_test_distilled"] for output in all_outputs])
@@ -122,7 +122,7 @@ def downsample_experiment(
     all_reduction_percentage = np.array([original_reduction_percentage] + [output["analysis"]["num_clauses_dropped_percentage"] for output in all_outputs])
 
     # get log information
-    all_mi_true_distilled = np.array([original_mi_true_distilled] + [output["mutual_information"]["mi_true_distilled"] for output in all_outputs])
+    all_i_distilled = np.array([original_i_distilled] + [output["mutual_information"]["I_distilled"] for output in all_outputs])
 
     # put into dataframe
     all_results = pd.DataFrame({
@@ -131,7 +131,7 @@ def downsample_experiment(
         "avg_acc": all_avg_acc,
         "total_training_time": all_total_training_time,
         "avg_training_time": all_avg_training_time,
-        "mi_true_distilled": all_mi_true_distilled
+        "I_distilled": all_i_distilled
     })
     all_results.to_csv(os.path.join(subfolderpath, "downsample_results.csv"))
 
@@ -218,15 +218,15 @@ def downsample_experiment(
 
     # plot information
     plt.figure(figsize=PLOT_FIGSIZE, dpi=PLOT_DPI)
-    plt.axhline(y=baseline_mi_true_teacher, linestyle=':', color="orange", alpha=horiz_alpha, label="Teacher")
-    plt.axhline(y=baseline_mi_true_student, linestyle=':', color="green", alpha=horiz_alpha, label="Student")
-    plt.plot(downsamples, all_mi_true_distilled, marker='o', markersize=marker_size, label="Distilled")
+    plt.axhline(y=baseline_i_teacher, linestyle=':', color="orange", alpha=horiz_alpha, label="Teacher")
+    plt.axhline(y=baseline_i_student, linestyle=':', color="green", alpha=horiz_alpha, label="Student")
+    plt.plot(downsamples, all_i_distilled, marker='o', markersize=marker_size, label="Distilled")
     plt.xlabel("Downsample Rate")
-    plt.ylabel("Mutual Information (nats)")
+    plt.ylabel("Information (nats)")
     plt.legend(loc="upper right")
     plt.xticks(x_ticks)
     plt.grid(linestyle='dotted')
-    plt.savefig(os.path.join(subfolderpath, "downsample_results_mutual_information.png"))
+    plt.savefig(os.path.join(subfolderpath, "downsample_results_information.png"))
     plt.close()
 
     # save params

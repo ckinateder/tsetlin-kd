@@ -239,15 +239,18 @@ def fix_mi_plots(top_folderpath):
     plt.close()
 
 
+
 if __name__ == "__main__":
-    fix_mi_calculations(os.path.join("final_results", "downsample", "KMNIST-Downsample"))
-    fix_mi_calculations(os.path.join("final_results", "downsample", "MNIST-Downsample"))
-    fix_mi_calculations(os.path.join("final_results", "downsample", "MNIST-Downsample-1200"))
-    fix_mi_calculations(os.path.join("final_results", "downsample", "MNIST3D-Downsample"))
-    fix_mi_calculations(os.path.join("final_results", "downsample", "IMDB-Downsample"))
+    fix_mi_calculations(os.path.join("results", "top_singles"))
+    fix_mi_calculations(os.path.join("final_results", "singles"))
+    #fix_mi_calculations(os.path.join("final_results", "downsample", "KMNIST-Downsample"))
+    #fix_mi_calculations(os.path.join("final_results", "downsample", "MNIST-Downsample"))
+    #fix_mi_calculations(os.path.join("final_results", "downsample", "MNIST-Downsample-1200"))
+    #fix_mi_calculations(os.path.join("final_results", "downsample", "MNIST3D-Downsample"))
+    #fix_mi_calculations(os.path.join("final_results", "downsample", "IMDB-Downsample"))
     
-    fix_mi_plots(os.path.join("final_results", "downsample", "KMNIST-Downsample"))
-    fix_mi_plots(os.path.join("final_results", "downsample", "MNIST-Downsample"))
-    fix_mi_plots(os.path.join("final_results", "downsample", "MNIST-Downsample-1200"))
-    fix_mi_plots(os.path.join("final_results", "downsample", "MNIST3D-Downsample"))
-    fix_mi_plots(os.path.join("final_results", "downsample", "IMDB-Downsample"))
+    #fix_mi_plots(os.path.join("final_results", "downsample", "KMNIST-Downsample"))
+    #fix_mi_plots(os.path.join("final_results", "downsample", "MNIST-Downsample"))
+    #fix_mi_plots(os.path.join("final_results", "downsample", "MNIST-Downsample-1200"))
+    #fix_mi_plots(os.path.join("final_results", "downsample", "MNIST3D-Downsample"))
+    #fix_mi_plots(os.path.join("final_results", "downsample", "IMDB-Downsample"))
