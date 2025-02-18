@@ -1,12 +1,14 @@
-# csvoperations
-
+# Use this file to fix plots and calculations after the experiments are done
 import csv
 import pandas as pd
 import json
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-
+from util import load_pkl, load_json, save_json
+import os 
+from stats import calculate_information
+from __init__ import  OUTPUT_JSON_PATH, PLOT_FIGSIZE, PLOT_DPI
 def iterate_over_file_in_folder(folder="experiments", file_extension=".json"):
     for root, dirs, files in os.walk(folder):
         for file in files:
@@ -179,40 +181,73 @@ def make_condensed_accuracy_table():
     table = table.sort_values(by="experiment")
     table.to_csv(os.path.join("experiments", "accuracy_table.csv"), index=False)
         
-def fix_mi_calculations():
-    for experiment, file_path in iterate_over_file_in_folder():
-        print(file_path)
-        mi = experiment["mutual_information"]
-        nc = experiment["params"]["teacher_num_clauses"]
-        C_distilled = experiment["params"]["student_num_clauses"]
+def fix_mi_calculations(top_folderpath):
+    for exp_path in os.listdir(top_folderpath):
+        if not os.path.isdir(os.path.join(top_folderpath, exp_path)):
+            continue
 
-        # calculate original number of literals (output of the teacher)
-        if "IMDB" in file_path:
-            original_lit = nc*2 # sentiment analysis
-        elif "MNIST" in file_path:
-            original_lit = nc*10 # 10-class classification
-        else:
-            raise
-        
-        #print(f"original num lits into distilled: {original_lit}") 
-        #print(f"num clauses dropped: {experiment['analysis']['num_clauses_dropped']}")
-        #print(f"num clauses dropped percentage: {experiment['analysis']['num_clauses_dropped_percentage']}")
-        L_distilled = round((1-(experiment["analysis"]["num_clauses_dropped_percentage"])/100)*original_lit)
-        print(f"L_distilled: {L_distilled}")
-        info_distilled = L_distilled/C_distilled*np.log(L_distilled/C_distilled)
-        
-        print("erraneous mi:", mi["info_distilled"])
-        print("corrected mi:", info_distilled)
+        # load output
+        print(f"Fixing MI for {exp_path}")
+        output = load_json(os.path.join(top_folderpath, exp_path, OUTPUT_JSON_PATH))
+        # compute the mutual information
+        I_student = calculate_information(output["helpful_for_calculations"]["L_student"], output["helpful_for_calculations"]["C_student"])
+        I_teacher = calculate_information(output["helpful_for_calculations"]["L_teacher"], output["helpful_for_calculations"]["C_teacher"])
+        I_distilled = calculate_information(output["helpful_for_calculations"]["L_distilled"], output["helpful_for_calculations"]["C_distilled"])
 
-        # update the experiment with the corrected mi
-        experiment["mutual_information"]["old_info_distilled"] = experiment["mutual_information"]["info_distilled"]
-        experiment["mutual_information"]["info_distilled"] = info_distilled
+        #print(f"I_student: {I_student}")
+        #print(f"I_teacher: {I_teacher}")
+        #print(f"I_distilled: {I_distilled}")
 
-        #with open(file_path, 'w') as f:
-        #    json.dump(experiment, f, indent=4)
+        # update output
+        output["mutual_information"] = {
+            "I_student": I_student,
+            "I_teacher": I_teacher,
+            "I_distilled": I_distilled
+        }
+        save_json(output, os.path.join(top_folderpath, exp_path, OUTPUT_JSON_PATH))
+        print(f"Saved to {os.path.join(top_folderpath, exp_path, OUTPUT_JSON_PATH)}")
+
+def fix_mi_plots(top_folderpath):
+    mis = {}
+    for exp_path in os.listdir(top_folderpath):
+        if not os.path.isdir(os.path.join(top_folderpath, exp_path)):
+            continue
+
+        output = load_json(os.path.join(top_folderpath, exp_path, OUTPUT_JSON_PATH))
+        downsample = output["params"]["downsample"]
+        mis[downsample] = output["mutual_information"]
+
+    downsamples = np.array(list(mis.keys()))
+    downsamples.sort()
+    horiz_alpha = 0.8
+    marker_size = 3
+    x_ticks = np.arange(0, downsamples.max()+0.05, 0.05)
+    all_i_true_distilled = np.array([mis[downsample]["I_distilled"] for downsample in downsamples])
+    baseline_i_teacher = mis[0]["I_teacher"]
+    baseline_i_student = mis[0]["I_student"]
+    
+    plt.figure(figsize=PLOT_FIGSIZE, dpi=PLOT_DPI)
+    plt.axhline(y=baseline_i_teacher, linestyle=':', color="orange", alpha=horiz_alpha, label="Teacher")
+    plt.axhline(y=baseline_i_student, linestyle=':', color="green", alpha=horiz_alpha, label="Student")
+    plt.plot(downsamples, all_i_true_distilled, marker='o', markersize=marker_size, label="Distilled")
+    plt.xlabel("Downsample Rate")
+    plt.ylabel("Information (nats)")
+    plt.legend(loc="upper right")
+    plt.xticks(x_ticks)
+    plt.grid(linestyle='dotted')
+    plt.savefig(os.path.join(top_folderpath, "downsample_results_information.png"))
+    plt.close()
 
 
 if __name__ == "__main__":
-    #combine_into_cols()
-    fix_mi_calculations()
-    #make_charts()       
+    fix_mi_calculations(os.path.join("final_results", "downsample", "KMNIST-Downsample"))
+    fix_mi_calculations(os.path.join("final_results", "downsample", "MNIST-Downsample"))
+    fix_mi_calculations(os.path.join("final_results", "downsample", "MNIST-Downsample-1200"))
+    fix_mi_calculations(os.path.join("final_results", "downsample", "MNIST3D-Downsample"))
+    fix_mi_calculations(os.path.join("final_results", "downsample", "IMDB-Downsample"))
+    
+    fix_mi_plots(os.path.join("final_results", "downsample", "KMNIST-Downsample"))
+    fix_mi_plots(os.path.join("final_results", "downsample", "MNIST-Downsample"))
+    fix_mi_plots(os.path.join("final_results", "downsample", "MNIST-Downsample-1200"))
+    fix_mi_plots(os.path.join("final_results", "downsample", "MNIST3D-Downsample"))
+    fix_mi_plots(os.path.join("final_results", "downsample", "IMDB-Downsample"))

@@ -26,15 +26,9 @@
         "num_clauses_dropped_percentage": 84.065
     },
     "mutual_information": {
-        "info_teacher": -0.3671054281631364,
-        "info_student": 16.14443246140056,
-        "info_distilled": 110.32326764304004,
-        "mi_true_student": 1.9816851232452424,
-        "mi_true_teacher": 2.0939851950956014,
-        "mi_true_distilled": 0.00327317286768111,
-        "mi_teacher_distilled": 0.0037598830807301755,
-        "mi_student_distilled": 0.0035685668470596815,
-        "mi_teacher_student": 1.9532012000884413
+        "I_student": -0.00014374463273390941,
+        "I_teacher": -9.097775178502864e-06,
+        "I_distilled": -3.976154847946479e-05
     },
     "helpful_for_calculations": {
         "L_student": 784,

@@ -64,6 +64,7 @@ if __name__ == "__main__":
         # done (mnist3d_dataset, "MNIST3D-Downsample", { "teacher_num_clauses": 1500, "student_num_clauses": 50, "T": 100, "s": 3.0, "teacher_epochs": 20, "student_epochs": 70 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
         # done (kmnist_dataset, "KMNIST-Downsample", {"teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 600, "s": 5, "teacher_epochs": 20, "student_epochs": 60 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": True}),
         (imdb_dataset, "IMDB-Downsample", {"teacher_num_clauses": 10000, "student_num_clauses": 2000, "T": 6000, "s": 4.0, "teacher_epochs": 30, "student_epochs": 90 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30], {"overwrite": False}),
+        (imdb_dataset, "IMDB-Downsample-T500S3", {"teacher_num_clauses": 10000, "student_num_clauses": 2000, "T": 500, "s": 3.0, "teacher_epochs": 30, "student_epochs": 90 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35], {"overwrite": False}),
     ]
     
     print("Running downsample experiments")
