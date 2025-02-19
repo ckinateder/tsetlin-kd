@@ -128,54 +128,7 @@ if __name__ == "__main__":
         X_test,
         Y_test,
         num_clauses_values=[2000],
-        threshold_values=[500, 2000, 4000, 6000, 8000, 10000],
-        specificity_values=[3, 5.0,10.0, 20.0, 40.0],
+        threshold_values=[500, 1000, 2000, 4000, 6000, 8000],
+        specificity_values=[3.0, 5.0, 10.0, 20.0, 40.0],
         epochs=5,
     )
-
-    # Load and prepare data with mnist-3d
-    """### Load MNIST-3D data"""
-    with h5py.File(os.path.join("data", "mnist3d.h5"), "r") as hf:
-        X_train = hf["X_train"][:]
-        Y_train = hf["y_train"][:]    
-        X_test = hf["X_test"][:]  
-        Y_test = hf["y_test"][:]  
-
-    # Print shapes with labels
-    print(f"X_train shape: {X_train.shape}, Y_train shape: {Y_train.shape}")
-    print(f"X_test shape: {X_test.shape}, Y_test shape: {Y_test.shape}")
-
-    # Data booleanization
-    X_train = np.where(X_train > 0.32, 1, 0)
-    X_test = np.where(X_test > 0.32, 1, 0)
-
-    best_params = grid_search(
-        X_train,
-        Y_train,
-        X_test,
-        Y_test,
-        num_clauses_values=[150, 1500],
-        threshold_values=[20, 45, 60, 100],
-        specificity_values=[3.0, 8.0, 15.0, 30.0, 50.0],
-        epochs=5,
-    )
-
-    print(best_params)
-    # Load and prepare data with fashion mnist
-    (X_train, Y_train), (X_test, Y_test) = fashion_mnist.load_data()
-    X_train = np.where(X_train.reshape((X_train.shape[0], 28*28)) > 75, 1, 0) 
-    X_test = np.where(X_test.reshape((X_test.shape[0], 28*28)) > 75, 1, 0) 
-
-    best_params = grid_search(
-        X_train,
-        Y_train,
-        X_test,
-        Y_test,
-        num_clauses_values=[750],
-        threshold_values=[5, 8, 10, 30, 40, 50],
-        specificity_values=[10.0, 15.0, 25.0, 40.0],
-        epochs=5,
-        random_search=True,
-    )
-
-    print(best_params)
