@@ -262,24 +262,6 @@ def distillation_experiment(
         print(f"Prefilled results loaded")
 
     # train baselines
-    # train baseline student
-    if isinstance(baseline_student_model, MultiClassTsetlinMachine):
-        print(f"Loading pretrained baseline student model")
-        baseline_student_tm = baseline_student_model
-    else:
-        print(f"Creating a baseline student with {params['student_num_clauses']} clauses and training on original data")
-        start = time()
-        bs_pbar = tqdm(range(params['combined_epochs']), desc="Student", leave=False, dynamic_ncols=True)
-        for i in bs_pbar:
-            result, train_time, test_time = train_step(baseline_student_tm, X_train, Y_train, X_test, Y_test)
-            results.loc[i, ACC_TEST_STUDENT], results.loc[i, TIME_TRAIN_STUDENT], results.loc[i, TIME_TEST_STUDENT] = result, train_time, test_time
-            tqdm.write(f'Epoch {i:>3}: Training time: {train_time:.2f} s, Testing time: {test_time:.2f} s, Test accuracy: {result:.2f}%')
-            bs_pbar.set_description(f"Student: {results[ACC_TEST_STUDENT].mean():.2f}%")
-
-        bs_pbar.close()
-        end = time()
-        print(f'Baseline student training time: {end-start:.2f} s')
-
     # train baseline teacher
     if isinstance(baseline_teacher_model, MultiClassTsetlinMachine):
         print(f"Loading pretrained baseline teacher model")
@@ -307,6 +289,24 @@ def distillation_experiment(
     results.loc[:params['teacher_epochs'], TIME_TRAIN_DISTILLED] = results.loc[:params['teacher_epochs'], TIME_TRAIN_TEACHER]
     results.loc[:params['teacher_epochs'], TIME_TEST_DISTILLED] = results.loc[:params['teacher_epochs'], TIME_TEST_TEACHER]
 
+    # train baseline student
+    if isinstance(baseline_student_model, MultiClassTsetlinMachine):
+        print(f"Loading pretrained baseline student model")
+        baseline_student_tm = baseline_student_model
+    else:
+        print(f"Creating a baseline student with {params['student_num_clauses']} clauses and training on original data")
+        start = time()
+        bs_pbar = tqdm(range(params['combined_epochs']), desc="Student", leave=False, dynamic_ncols=True)
+        for i in bs_pbar:
+            result, train_time, test_time = train_step(baseline_student_tm, X_train, Y_train, X_test, Y_test)
+            results.loc[i, ACC_TEST_STUDENT], results.loc[i, TIME_TRAIN_STUDENT], results.loc[i, TIME_TEST_STUDENT] = result, train_time, test_time
+            tqdm.write(f'Epoch {i:>3}: Training time: {train_time:.2f} s, Testing time: {test_time:.2f} s, Test accuracy: {result:.2f}%')
+            bs_pbar.set_description(f"Student: {results[ACC_TEST_STUDENT].mean():.2f}%")
+
+        bs_pbar.close()
+        end = time()
+        print(f'Baseline student training time: {end-start:.2f} s')
+
     # train distilled model
     if isinstance(pretrained_teacher_model, MultiClassTsetlinMachine):
         print(f"Loading pretrained teacher model")
@@ -319,8 +319,14 @@ def distillation_experiment(
 
     # downsample clauses
     print(f"Getting offline clause outputs from teacher model")
+    s = time()
     X_train_transformed = teacher_tm.transform(X_train)
+    e = time()
+    print(f"Got clause outputs for X_train in {e-s:.2f}s")
+    s = time()
     X_test_transformed = teacher_tm.transform(X_test)
+    e = time()
+    print(f"Got clause outputs for X_test in {e-s:.2f}s")
 
     print(f"Downsampling clauses with downsample rate {params['downsample']}")
     X_train_downsampled, X_test_downsampled, num_clauses_dropped = downsample_clauses(X_train_transformed, X_test_transformed, params['downsample'], symmetric=True)

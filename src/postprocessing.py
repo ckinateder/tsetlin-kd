@@ -239,7 +239,6 @@ def fix_mi_plots(top_folderpath):
     plt.close()
 
 
-
 if __name__ == "__main__":
     fix_mi_calculations(os.path.join("results", "top_singles"))
     fix_mi_calculations(os.path.join("final_results", "singles"))

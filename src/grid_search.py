@@ -1,11 +1,10 @@
 import numpy as np
 from pyTsetlinMachineParallel.tm import MultiClassTsetlinMachine
-from tensorflow.keras.datasets import mnist, fashion_mnist
 from time import time
 from tqdm import tqdm, trange
 import h5py
 import os
-from datasets import prepare_imdb_data, IMDBDataset
+from datasets import prepare_imdb_data, IMDBDataset, MNISTDataset, FashionMNISTDataset
 from util import load_or_create
 
 def grid_search(
@@ -114,21 +113,18 @@ def grid_search(
 
 
 if __name__ == "__main__":
-    # do IMDB grid search
-    imdb_dataset = load_or_create(os.path.join("data", "imdb_dataset.pkl"), IMDBDataset)
+    # do MNIST grid search
+    fashion_mnist_dataset = load_or_create(os.path.join("data", "fashion_mnist_dataset.pkl"), FashionMNISTDataset)
 
-    X_train, Y_train, X_test, Y_test = imdb_dataset.get_data()
-
-    print(f"X_train shape: {X_train.shape}, Y_train shape: {Y_train.shape}")
-    print(f"X_test shape: {X_test.shape}, Y_test shape: {Y_test.shape}")
+    X_train, Y_train, X_test, Y_test = fashion_mnist_dataset.get_data()
 
     best_params = grid_search(
         X_train,
         Y_train,
         X_test,
         Y_test,
-        num_clauses_values=[2000],
-        threshold_values=[500, 1000, 2000, 4000, 6000, 8000],
+        num_clauses_values=[100],
+        threshold_values=[20, 40, 6000],
         specificity_values=[3.0, 5.0, 10.0, 20.0, 40.0],
-        epochs=5,
+        epochs=10,
     )

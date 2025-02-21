@@ -209,3 +209,9 @@ class KMNISTDataset(Dataset):
         self.X_train = np.where(self.X_train > booleanize_threshold, 1, 0)
         self.X_test = np.where(self.X_test > booleanize_threshold, 1, 0)
         
+
+if __name__ == "__main__":
+    dataset = IMDBDataset()
+    data = dataset.get_data()
+
+    print(data[0].shape)
