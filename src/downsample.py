@@ -100,6 +100,7 @@ def downsample_experiment(
     original_avg_training_time = original_output["analysis"]["avg_time_train_distilled"]
     original_i_distilled = original_output["mutual_information"]["I_distilled"]
     original_reduction_percentage = 0
+    original_avg_test_time = original_output["analysis"]["avg_time_test_distilled"]
 
     # now plot the results. Y value is average accuracy of distilled model plotted over different downsamples
     # add a line for baseline teacher and baseline student
@@ -113,6 +114,8 @@ def downsample_experiment(
     baseline_teacher_avg_training_time = original_output["analysis"]["avg_time_train_teacher"]
     baseline_i_student = original_output["mutual_information"]["I_student"]
     baseline_i_teacher = original_output["mutual_information"]["I_teacher"]
+    baseline_teacher_avg_test_time = original_output["analysis"]["avg_time_test_teacher"]
+    baseline_student_avg_test_time = original_output["analysis"]["avg_time_test_student"]
 
     # get final and average distilled accuracy
     all_final_acc = np.array([original_final_acc] + [output["analysis"]["final_acc_test_distilled"] for output in all_outputs])
@@ -120,7 +123,8 @@ def downsample_experiment(
     all_total_training_time = np.array([original_total_training_time] + [output["analysis"]["sum_time_train_distilled"] for output in all_outputs])
     all_avg_training_time = np.array([original_avg_training_time] + [output["analysis"]["avg_time_train_distilled"] for output in all_outputs])
     all_reduction_percentage = np.array([original_reduction_percentage] + [output["analysis"]["num_clauses_dropped_percentage"] for output in all_outputs])
-
+    all_avg_test_time = np.array([original_avg_test_time] + [output["analysis"]["avg_time_test_distilled"] for output in all_outputs])
+    
     # get log information
     all_i_distilled = np.array([original_i_distilled] + [output["mutual_information"]["I_distilled"] for output in all_outputs])
 
@@ -202,6 +206,22 @@ def downsample_experiment(
     plt.xticks(x_ticks)
     plt.grid(linestyle='dotted')
     plt.savefig(os.path.join(subfolderpath, "downsample_results_avg_training_time.png"))
+    plt.close()
+
+    # plot average test time
+    plt.figure(figsize=PLOT_FIGSIZE, dpi=PLOT_DPI)
+    plt.axhline(y=baseline_teacher_avg_test_time, linestyle=':', color="orange", alpha=horiz_alpha, label="Teacher")
+    plt.axhline(y=baseline_student_avg_test_time, linestyle=':', color="green", alpha=horiz_alpha, label="Student")
+    plt.plot(downsamples, all_avg_test_time, marker='o', markersize=marker_size, label="Distilled")
+    plt.xlabel("Downsample Rate")
+    plt.ylabel("Average Test Time (s)")
+    plt.legend(loc="upper right")
+    yticks = plt.yticks()[0]
+    if yticks.shape[0] <= PLOT_FIGSIZE[1]+2:
+        plt.yticks(np.arange(yticks.min(), plt.yticks()[0].max(), (yticks[1]-yticks[0])/2))
+    plt.xticks(x_ticks)
+    plt.grid(linestyle='dotted')
+    plt.savefig(os.path.join(subfolderpath, "downsample_results_avg_test_time.png"))
     plt.close()
 
     # plot reduction percentage

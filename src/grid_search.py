@@ -74,14 +74,12 @@ def grid_search(
                     result = 100 * (tm.predict(X_test) == Y_test).mean()
                     stop_testing = time()
 
+                    start_transform = time()
+                    tm.transform(X_test)
+                    stop_transform = time()
+
                     tqdm.write(
-                        "#%d Accuracy: %.2f%% Training: %.2fs Testing: %.2fs"
-                        % (
-                            i + 1,
-                            result,
-                            stop_training - start_training,
-                            stop_testing - start_testing,
-                        )
+                        f"#{i + 1} Accuracy: {result:.2f}% Training: {stop_training - start_training:.2f}s Testing: {stop_testing - start_testing:.2f}s Transform:{stop_transform - start_transform:.2f}s"
                     )
 
                     # Update best parameters if we found better accuracy
@@ -123,8 +121,9 @@ if __name__ == "__main__":
         Y_train,
         X_test,
         Y_test,
-        num_clauses_values=[100],
-        threshold_values=[20, 40, 6000],
-        specificity_values=[3.0, 5.0, 10.0, 20.0, 40.0],
-        epochs=10,
+        num_clauses_values=[200, 2000],
+        threshold_values=[10, 50, 500, 6400],
+        specificity_values=[5, 10, 20, 40],
+        epochs=5,
+        random_search=True
     )

@@ -136,7 +136,6 @@ def validate_params(params: dict, experiment_name: str) -> str:
     assert "teacher_epochs" in params, "Teacher epochs not specified"
     assert "student_num_clauses" in params, "Student number of clauses not specified"
     assert "student_epochs" in params, "Student epochs not specified"
-    assert params["teacher_num_clauses"] > params["student_num_clauses"], "Student clauses should be less than teacher clauses"
     assert params["downsample"] >= 0 and params["downsample"] <= 1, "Downsample should be a float between 0 and 1"
 
     params["combined_epochs"] = params["teacher_epochs"] + params["student_epochs"]
@@ -322,11 +321,13 @@ def distillation_experiment(
     s = time()
     X_train_transformed = teacher_tm.transform(X_train)
     e = time()
-    print(f"Got clause outputs for X_train in {e-s:.2f}s")
+    train_transform_time = e-s
+    print(f"Got clause outputs for X_train in {train_transform_time:.2f}s")
     s = time()
     X_test_transformed = teacher_tm.transform(X_test)
     e = time()
-    print(f"Got clause outputs for X_test in {e-s:.2f}s")
+    test_transform_time = e-s
+    print(f"Got clause outputs for X_test in {test_transform_time:.2f}s")
 
     print(f"Downsampling clauses with downsample rate {params['downsample']}")
     X_train_downsampled, X_test_downsampled, num_clauses_dropped = downsample_clauses(X_train_transformed, X_test_transformed, params['downsample'], symmetric=True)
@@ -396,6 +397,8 @@ def distillation_experiment(
             "avg_time_test_student": results[TIME_TEST_STUDENT].mean(),
             "avg_time_test_distilled": results[TIME_TEST_DISTILLED].mean(),
             "total_time": total_time,
+            "train_transform_time": train_transform_time,
+            "test_transform_time": test_transform_time,
             "num_clauses_dropped": num_clauses_dropped,
             "num_clauses_dropped_percentage": reduction_percentage
         },
