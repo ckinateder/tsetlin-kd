@@ -6,3 +6,4 @@ data
 **/*.pkl
 old_save
 trash
+.specstory

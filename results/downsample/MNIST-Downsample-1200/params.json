@@ -1,12 +1,3 @@
-{
-    "teacher_num_clauses": 1200,
-    "student_num_clauses": 100,
-    "T": 40,
-    "s": 7.5,
-    "teacher_epochs": 20,
-    "student_epochs": 80,
-    "downsample": 0.4,
-    "combined_epochs": 100,
-    "weighted_clauses": true,
-    "number_of_state_bits": 8
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:5f32450511bd6850ef2a28b9e71a92d31da091f139e4de5d322e91cb0b00a0d3
+size 258
