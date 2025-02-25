@@ -1,7 +1,6 @@
 from distillation import distillation_experiment
-from downsample import downsample_experiment
 import os
-from datasets import MNISTDataset, MNIST3DDataset, FashionMNISTDataset, KMNISTDataset, IMDBDataset
+from datasets import MNISTDataset, MNIST3DDataset, FashionMNISTDataset, KMNISTDataset, IMDBDataset, EMNISTLettersDataset
 from util import load_or_create
 import numpy as np
 import random
@@ -13,19 +12,25 @@ random.seed(0)
 So far, these are the best params:
 
 distilled:
-    (kmnist_dataset, "KMNIST", { "teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 600, "s": 5, "teacher_epochs": 20, "student_epochs": 60, "downsample": 0.02 }, {"overwrite": False}),
-    (mnist3d_dataset, "MNIST3D", { "teacher_num_clauses": 1500, "student_num_clauses": 50, "T": 100, "s": 3.0, "teacher_epochs": 20, "student_epochs": 70 , "downsample": 0.0}, {"overwrite": False})
-    (mnist_dataset, "MNIST", { "teacher_num_clauses": 2000, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 80, "downsample": 0.02 }, {"overwrite": False}),
-    (fashion_mnist_dataset, "FashionMNIST", { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 60, "s": 20.0,"teacher_epochs": 20, "student_epochs": 80, "downsample": 0 }, {"overwrite": False}),
-    (imdb_dataset, "IMDB", { "teacher_num_clauses": 10000, "student_num_clauses": 2000, "T": 6000, "s": 4.0, "teacher_epochs": 30, "student_epochs": 90, "downsample": 0 }, {"overwrite": False}),
+    (mnist_dataset, "MNIST", { "teacher_num_clauses": 600, "student_num_clauses": 100, "T": 20, "s": 10.0,"teacher_epochs": 60, "student_epochs": 60 , "temperature": 3.0}, {"overwrite": False}),
 
-downsample:
-    (mnist3d_dataset, "MNIST3D-Downsample", { "teacher_num_clauses": 1500, "student_num_clauses": 50, "T": 100, "s": 3.0, "teacher_epochs": 20, "student_epochs": 70 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
-    (-=-, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
-    (mnist_dataset, "MNIST-Downsample", {"teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 80 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35], {"overwrite": False}),
-    (kmnist_dataset, "KMNIST-Downsample", {"teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 600, "s": 5, "teacher_epochs": 20, "student_epochs": 60 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
-    (imdb_dataset, "IMDB-Downsample", {"teacher_num_clauses": 10000, "student_num_clauses": 2000, "T": 6000, "s": 4.0, "teacher_epochs": 30, "student_epochs": 90 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35], {"overwrite": False}),
-
+    EMNIST:
+        (emnist_dataset, "EMNIST", 
+            {
+                "teacher": { "C": 800, "T": 100, "s": 4.0, "epochs": 40 },
+                "student": { "C": 100, "T": 60, "s": 4.0, "epochs": 80 },
+                "temperature": 3,
+            },
+            {"overwrite": True}
+        )
+        (mnist_dataset, "MNIST", 
+            {
+                "teacher": { "C": 1000, "T": 10, "s": 4.0, "epochs": 40 },
+                "student": { "C": 100, "T": 10, "s": 4.0, "epochs": 80 },
+                "temperature": 3.0,
+            },
+            {"overwrite": True}
+        ),
 """
 
 if __name__ == "__main__":
@@ -36,21 +41,69 @@ if __name__ == "__main__":
     mnist_dataset = load_or_create(os.path.join("data", "mnist_dataset.pkl"), MNISTDataset)
     fashion_mnist_dataset = load_or_create(os.path.join("data", "fashion_mnist_dataset.pkl"), FashionMNISTDataset)
     imdb_dataset = load_or_create(os.path.join("data", "imdb_dataset.pkl"), IMDBDataset)
+    emnist_dataset = load_or_create(os.path.join("data", "emnist_dataset.pkl"), EMNISTLettersDataset)
     print("Datasets loaded")
-    
-    # run distilled experiments
+        
+    #run distilled experiments
     # this goes (dataset, name, params, kwargs)
-    one_off_dir = os.path.join("results", "top_singles")
+    one_off_dir = os.path.join("results")
     distilled_experiments = [
-        # done (mnist3d_dataset, "MNIST3D", { "teacher_num_clauses": 2000, "student_num_clauses": 200, "T": 100, "s": 8.0, "teacher_epochs": 30, "student_epochs": 60, "downsample": 0 }, {"overwrite": False}),
-        # (fashion_mnist_dataset, "FashionMNIST", { "teacher_num_clauses": 800, "student_num_clauses": 100, "T": 60, "s": 20.0,"teacher_epochs": 20, "student_epochs": 80, "downsample": 0 }, {"overwrite": False}),
-        # done (kmnist_dataset, "KMNIST", { "teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 600, "s": 5, "teacher_epochs": 20, "student_epochs": 60, "downsample": 0.02 }, {"overwrite": False}),
-        # done (mnist_dataset, "MNIST", { "teacher_num_clauses": 2000, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 80, "downsample": 0.02 }, {"overwrite": False}),
-        # done (imdb_dataset, "IMDB", {{"teacher_num_clauses": 10000, "student_num_clauses": 2000, "T": 6000, "s": 4.0, "teacher_epochs": 30, "student_epochs": 90, "downsample": 0.01 }, {"overwrite": False}),
-         # original mnist (mnist_dataset, "MNIST", { "teacher_num_clauses": 400, "student_num_clauses": 100, "T": 10, "s": 7.5,"teacher_epochs": 60, "student_epochs": 60, "downsample": 0 }, {"overwrite": False}),
-        # (mnist_dataset, "MNIST-small", { "teacher_num_clauses": 600, "student_num_clauses": 100, "T": 20, "s": 10.0,"teacher_epochs": 60, "student_epochs": 60, "downsample": 0 }, {"overwrite": False}),
-        #(fashion_mnist_dataset, "FashionMNIST", { "teacher_num_clauses": 2000, "student_num_clauses": 200, "T": 50, "s": 15,"teacher_epochs": 30, "student_epochs": 60, "downsample": 0.01 }, {"overwrite": False}),
-        # (mnist_dataset, "MNIST-huge", { "teacher_num_clauses": 8000, "student_num_clauses": 1000, "T": 6400, "s": 5.0,"teacher_epochs": 60, "student_epochs": 60, "downsample": 0 }, {"overwrite": False}),
+        (emnist_dataset, "EMNIST", 
+            {
+                "teacher": { "C": 800, "T": 100, "s": 4.0, "epochs": 60 },
+                "student": { "C": 100, "T": 60, "s": 4.0, "epochs": 120 },
+                "temperature": 4,
+            },
+            {"overwrite": False}
+        ),
+        (emnist_dataset, "EMNIST", 
+            {
+                "teacher": { "C": 1000, "T": 200, "s": 5.0, "epochs": 60 },
+                "student": { "C": 100, "T": 200, "s": 5.0, "epochs": 120 },
+                "temperature": 3,
+            },
+            {"overwrite": False}
+        ),
+        (kmnist_dataset, "KMNIST", 
+            {
+                "teacher": { "C": 1000, "T": 400, "s": 4.0, "epochs": 30 },
+                "student": { "C": 100, "T": 400, "s": 4.0, "epochs": 60 },
+                "temperature": 3,
+            },
+            {"overwrite": False}
+        ),
+        (kmnist_dataset, "KMNIST", 
+            {
+                "teacher": { "C": 2000, "T": 600, "s": 4.0, "epochs": 60 },
+                "student": { "C": 200, "T": 1000, "s": 3.5, "epochs": 120 },
+                "temperature": 3,
+            },
+            {"overwrite": False}
+        ),
+        (mnist_dataset, "MNIST", 
+            {
+                "teacher": { "C": 1000, "T": 10, "s": 4.0, "epochs": 40 },
+                "student": { "C": 100, "T": 10, "s": 4.0, "epochs": 80 },
+                "temperature": 3.0,
+            },
+            {"overwrite": True}
+        ),
+        (mnist3d_dataset, "MNIST3D", 
+            {
+                "teacher": { "C": 2000, "T": 100, "s": 8.0, "epochs": 30 },
+                "student": { "C": 200, "T": 100, "s": 8.0, "epochs": 60 },
+                "temperature": 4.0,
+            },
+            {"overwrite": False}
+        ),
+        (imdb_dataset, "IMDB", 
+            {
+                "teacher": { "C": 10000, "T": 6000, "s": 4.0, "epochs": 20 },
+                "student": { "C": 2000, "T": 6000, "s": 4.0, "epochs": 60 },
+                "temperature": 4.0,
+            },
+            {"overwrite": False}
+        ),
     ]
     
     print("Running distilled experiments")
@@ -58,25 +111,5 @@ if __name__ == "__main__":
         kwargs["folderpath"] = one_off_dir
         kwargs["save_all"] = True
         distillation_experiment(dataset, name, params, **kwargs)
-    
-    # run downsample experiments
-    # this goes (dataset, name, params, downsamples, kwargs)
-    downsample_dir = os.path.join("results", "downsample")
-    downsample_experiments = [        
-        # (fashion_mnist_dataset, "FashionMNIST-Downsample", { "teacher_num_clauses": 800, "student_num_clauses": 150, "T": 60, "s": 20.0,"teacher_epochs": 20, "student_epochs": 80 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
-        #(mnist_dataset, "MNIST-Downsample-1200", { "teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 80 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40], {"overwrite": False}),
-        # (mnist3d_dataset, "MNIST3D-Downsample", { "teacher_num_clauses": 1500, "student_num_clauses": 50, "T": 100, "s": 3.0, "teacher_epochs": 20, "student_epochs": 70 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
-        (mnist3d_dataset, "MNIST3D-Downsample-Take-2", { "teacher_num_clauses": 1500, "student_num_clauses": 250, "T": 100, "s": 3.0, "teacher_epochs": 20, "student_epochs": 70 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
-        (kmnist_dataset, "KMNIST-Downsample", {"teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 600, "s": 5, "teacher_epochs": 20, "student_epochs": 60 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
-        (imdb_dataset, "IMDB-Downsample-Take-2", {"teacher_num_clauses": 10000, "student_num_clauses": 2000, "T": 6000, "s": 4.0, "teacher_epochs": 30, "student_epochs": 90 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35], {"overwrite": False}),
-        (mnist_dataset, "MNIST-Downsample-Small", {"teacher_num_clauses": 400, "student_num_clauses": 100, "T": 10, "s": 5.0,"teacher_epochs": 30, "student_epochs": 60 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
-        (mnist_dataset, "MNIST-Downsample-Huge", { "teacher_num_clauses": 3500, "student_num_clauses": 500, "T": 6400, "s": 5.0,"teacher_epochs": 30, "student_epochs": 60 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
-        #(mnist_dataset, "MNIST-Downsample-Half-Clauses", { "teacher_num_clauses": 2000, "student_num_clauses": 1000, "T": 6400, "s": 5.0,"teacher_epochs": 30, "student_epochs": 60 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False})
-    ]
-    
-    print("Running downsample experiments")
-    for dataset, name, params, downsamples, kwargs in downsample_experiments:
-        kwargs["folderpath"] = downsample_dir
-        kwargs["save_all"] = True
-        downsample_experiment(dataset, name, params, downsamples, **kwargs)
+        
     

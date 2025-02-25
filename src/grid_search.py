@@ -111,10 +111,10 @@ def grid_search(
 
 
 if __name__ == "__main__":
-    # do MNIST grid search
-    fashion_mnist_dataset = load_or_create(os.path.join("data", "fashion_mnist_dataset.pkl"), FashionMNISTDataset)
+    # do kmnist grid search
+    kmnist_dataset = load_or_create(os.path.join("data", "kmnist_dataset.pkl"), KMNISTDataset)
 
-    X_train, Y_train, X_test, Y_test = fashion_mnist_dataset.get_data()
+    X_train, Y_train, X_test, Y_test = kmnist_dataset.get_data()
 
     best_params = grid_search(
         X_train,
@@ -122,8 +122,8 @@ if __name__ == "__main__":
         X_test,
         Y_test,
         num_clauses_values=[200, 2000],
-        threshold_values=[10, 50, 500, 6400],
-        specificity_values=[5, 10, 20, 40],
+        threshold_values=[100, 150, 200, 500, 800],
+        specificity_values=[10.0, 15.0, 20.0, 40.0],
         epochs=5,
         random_search=True
     )
