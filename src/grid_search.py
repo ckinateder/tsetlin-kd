@@ -4,7 +4,7 @@ from time import time
 from tqdm import tqdm, trange
 import h5py
 import os
-from datasets import prepare_imdb_data, IMDBDataset, MNISTDataset, FashionMNISTDataset
+from datasets import prepare_imdb_data, IMDBDataset, MNISTDataset, FashionMNISTDataset, KMNISTDataset
 from util import load_or_create
 
 def grid_search(
@@ -111,19 +111,19 @@ def grid_search(
 
 
 if __name__ == "__main__":
-    # do MNIST grid search
-    fashion_mnist_dataset = load_or_create(os.path.join("data", "fashion_mnist_dataset.pkl"), FashionMNISTDataset)
+    # do KMNIST grid search
+    kmnist_dataset = load_or_create(os.path.join("data", "kmnist_dataset.pkl"), KMNISTDataset)
 
-    X_train, Y_train, X_test, Y_test = fashion_mnist_dataset.get_data()
+    X_train, Y_train, X_test, Y_test = kmnist_dataset.get_data()
 
-    best_params = grid_search(
+    grid_search(
         X_train,
         Y_train,
         X_test,
         Y_test,
-        num_clauses_values=[200, 2000],
-        threshold_values=[10, 50, 500, 6400],
-        specificity_values=[5, 10, 20, 40],
+        num_clauses_values=[500],
+        threshold_values=[40, 100, 300, 500, 2000],
+        specificity_values=[5, 9.5, 20.0, 40.0],
         epochs=5,
         random_search=True
     )

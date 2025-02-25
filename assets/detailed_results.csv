@@ -1,0 +1,3 @@
+dataset, student_accuracy, student_train_time, teacher_accuracy, teacher_train_time, distilled_accuracy, distilled_train_time, distilled_downsample_accuracy, distilled_downsample_train_time
+MNIST, 90.24, 23.47, 91.45, 40.55, 91.77, 91.02, 91.77, 91.02
+KMNIST, 
