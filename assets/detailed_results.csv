@@ -1,3 +1,4 @@
 dataset, student_accuracy, student_train_time, teacher_accuracy, teacher_train_time, distilled_accuracy, distilled_train_time, distilled_downsample_accuracy, distilled_downsample_train_time
+IMDB, 87.86, 7.61, 89.09, 38.00, 88.84, 32.19, 88.66, 21.76
 MNIST, 90.24, 23.47, 91.45, 40.55, 91.77, 91.02, 91.77, 91.02
 KMNIST, 

@@ -23,7 +23,12 @@
         "avg_time_test_distilled": 0.06312671237521701,
         "total_time": 5.396111726760864,
         "num_clauses_dropped": 3960,
-        "num_clauses_dropped_percentage": 99.0
+        "num_clauses_dropped_percentage": 99.0,
+        "pretty": {
+            "avg_acc_test_teacher": "91.45 +/- 1.66",
+            "avg_acc_test_student": "90.24 +/- 1.27",
+            "avg_acc_test_distilled": "82.11 +/- 6.12"
+        }
     },
     "mutual_information": {
         "I_student": -0.00014374463273390941,

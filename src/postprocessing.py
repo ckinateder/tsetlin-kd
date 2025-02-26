@@ -237,19 +237,45 @@ def fix_mi_plots(top_folderpath):
     plt.grid(linestyle='dotted')
     plt.savefig(os.path.join(top_folderpath, "downsample_results_information.png"))
     plt.close()
+          
+def add_formatted_acc(folderpath):
+    """
+    
+    # compute averages for accuracy
+    avg_acc_test_teacher = results["acc_test_teacher"].mean()
+    std_acc_test_teacher = results["acc_test_teacher"].std()
+    avg_acc_test_student = results["acc_test_student"].mean()
+    std_acc_test_student = results["acc_test_student"].std()
+    avg_acc_test_distilled = results["acc_test_distilled"].mean()
+    std_acc_test_distilled = results["acc_test_distilled"].std()
 
+    # compute sum of training times
+    sum_time_train_teacher = results["time_train_teacher"].sum()
+    sum_time_train_student = results["time_train_student"].sum()
+    sum_time_train_distilled = results["time_train_distilled"].sum()
+
+    """
+    import numpy as np
+    for experiment, file_path in iterate_over_file_in_folder(folderpath):
+        if "analysis" not in experiment:
+            print("No analysis found for ", file_path)
+            continue
+
+        analysis = experiment["analysis"]
+        experiment["analysis"]["pretty"] = {
+            "avg_acc_test_teacher": f"{analysis['avg_acc_test_teacher']:.2f} +/- {analysis['std_acc_test_teacher']:.2f}",
+            "avg_acc_test_student": f"{analysis['avg_acc_test_student']:.2f} +/- {analysis['std_acc_test_student']:.2f}",
+            "avg_acc_test_distilled": f"{analysis['avg_acc_test_distilled']:.2f} +/- {analysis['std_acc_test_distilled']:.2f}",
+            
+        }
+        
+        with open(file_path, 'w') as f:
+            json.dump(experiment, f, indent=4)
 
 if __name__ == "__main__":
-    fix_mi_calculations(os.path.join("results", "top_singles"))
-    fix_mi_calculations(os.path.join("final_results", "singles"))
-    #fix_mi_calculations(os.path.join("final_results", "downsample", "KMNIST-Downsample"))
-    #fix_mi_calculations(os.path.join("final_results", "downsample", "MNIST-Downsample"))
-    #fix_mi_calculations(os.path.join("final_results", "downsample", "MNIST-Downsample-1200"))
-    #fix_mi_calculations(os.path.join("final_results", "downsample", "MNIST3D-Downsample"))
-    #fix_mi_calculations(os.path.join("final_results", "downsample", "IMDB-Downsample"))
-    
-    #fix_mi_plots(os.path.join("final_results", "downsample", "KMNIST-Downsample"))
-    #fix_mi_plots(os.path.join("final_results", "downsample", "MNIST-Downsample"))
-    #fix_mi_plots(os.path.join("final_results", "downsample", "MNIST-Downsample-1200"))
-    #fix_mi_plots(os.path.join("final_results", "downsample", "MNIST3D-Downsample"))
-    #fix_mi_plots(os.path.join("final_results", "downsample", "IMDB-Downsample"))
+    add_formatted_acc(os.path.join("results", "top_singles"))
+    add_formatted_acc(os.path.join("final_results", "singles"))
+    add_formatted_acc(os.path.join("final_results", "downsample", "KMNIST-Downsample"))
+    add_formatted_acc(os.path.join("final_results", "downsample", "MNIST-Downsample-Small"))
+    add_formatted_acc(os.path.join("final_results", "downsample", "MNIST3D-Downsample-Take-2"))
+    add_formatted_acc(os.path.join("final_results", "downsample", "IMDB-Downsample-Take-2"))

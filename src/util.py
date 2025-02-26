@@ -31,10 +31,10 @@ def rm_file(file_path):
     if os.path.exists(file_path):
         os.remove(file_path)
 
-def load_or_create(file_path:str, create_func):
+def load_or_create(file_path:str, create_func, **kwargs):
     if os.path.exists(file_path):
         return load_pkl(file_path)
     else:
-        data = create_func()
+        data = create_func(**kwargs)
         save_pkl(data, file_path)
         return data

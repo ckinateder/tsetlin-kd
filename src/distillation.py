@@ -199,6 +199,7 @@ def distillation_experiment(
     # check that the data is valid
     dataset.validate_lengths()
     X_train, Y_train, X_test, Y_test = dataset.get_data()
+    print(f"X_train shape: {X_train.shape}, Y_train shape: {Y_train.shape}, X_test shape: {X_test.shape}, Y_test shape: {Y_test.shape}")
 
     # fill in missing parameters with defaults
     for key, value in DISTILLED_DEFAULTS.items():
@@ -400,7 +401,12 @@ def distillation_experiment(
             "train_transform_time": train_transform_time,
             "test_transform_time": test_transform_time,
             "num_clauses_dropped": num_clauses_dropped,
-            "num_clauses_dropped_percentage": reduction_percentage
+            "num_clauses_dropped_percentage": reduction_percentage,
+            "pretty": {
+                "avg_acc_test_teacher": f"{results[ACC_TEST_TEACHER].mean():.2f} +/- {results[ACC_TEST_TEACHER].std():.2f}",
+                "avg_acc_test_student": f"{results[ACC_TEST_STUDENT].mean():.2f} +/- {results[ACC_TEST_STUDENT].std():.2f}",
+                "avg_acc_test_distilled": f"{results[ACC_TEST_DISTILLED].mean():.2f} +/- {results[ACC_TEST_DISTILLED].std():.2f}"
+            }
         },
         "mutual_information": {
             "I_student": I_student,

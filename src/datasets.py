@@ -12,7 +12,6 @@ import os
 from abc import ABC, abstractmethod
 from torchvision.datasets import KMNIST
 from torchvision import transforms
-
 def prepare_imdb_data(
     max_ngram: int = 2,
     num_words: int = 5000,
@@ -121,6 +120,29 @@ def prepare_imdb_data(
 
     return (X_train, Y_train), (X_test, Y_test)
 
+def scale(X: np.ndarray, original_shape: tuple, scale_factor: int) -> np.ndarray:
+    """
+    Resizes each sample in X by scaling the original shape dimensions by scale_factor.
+    
+    Args:
+        X: 2D array of shape (samples, features)
+        original_shape: Tuple representing the original dimensions of each sample
+        scale_factor: Factor to scale each dimension by
+        
+    Returns:
+        Scaled 2D array of shape (samples, new_feature_count)
+    """
+    assert np.prod(original_shape) == X.shape[1], "Original shape doesn't match feature count"
+    
+    scaled_data = []
+    
+    for sample in X:
+        img = sample.reshape(original_shape)
+        for axis in range(len(original_shape)):
+            img = np.repeat(img, scale_factor, axis=axis)
+        scaled_data.append(img.flatten())
+    
+    return np.array(scaled_data)
 
 class Dataset(ABC):
     def __init__(self, **kwargs):
@@ -134,14 +156,30 @@ class Dataset(ABC):
         return self.X_train, self.Y_train, self.X_test, self.Y_test
 
     def get_data_train(self):
-        return self.X_train, self.Y_train
+        return self.get_data()[:2]
 
     def get_data_test(self):
-        return self.X_test, self.Y_test
+        return self.get_data()[2:]
 
     def validate_lengths(self):
         assert len(self.X_train) == len(self.Y_train), "Training data length mismatch"
         assert len(self.X_test) == len(self.Y_test), "Testing data length mismatch"
+
+class ImageDataset(Dataset):
+    def __init__(self, scale_factor: int = 1, **kwargs):
+        self.scale_factor = scale_factor
+        self.shape = None
+        super().__init__(**kwargs)
+        
+    def scale(self, X: np.ndarray):
+        if self.shape is None:
+            raise ValueError("Shape not set")
+        return scale(X, self.shape, self.scale_factor)
+    
+    def get_data(self):
+        if self.scale_factor != 1:
+            return self.scale(self.X_train), self.Y_train, self.scale(self.X_test), self.Y_test
+        return super().get_data()
 
 class IMDBDataset(Dataset):
     def __init__(self, **kwargs):
@@ -150,10 +188,10 @@ class IMDBDataset(Dataset):
     def _load(self, **kwargs):
         (self.X_train, self.Y_train), (self.X_test, self.Y_test) = prepare_imdb_data()
 
-class MNISTDataset(Dataset):
+class MNISTDataset(ImageDataset):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-
+        self.shape = (28, 28)
     def _load(self, booleanize_threshold: int = 75):
         (self.X_train, self.Y_train), (self.X_test, self.Y_test) = mnist.load_data()
 
@@ -163,10 +201,10 @@ class MNISTDataset(Dataset):
         self.X_train = self.X_train.reshape(self.X_train.shape[0], 28*28)
         self.X_test = self.X_test.reshape(self.X_test.shape[0], 28*28)
         
-class FashionMNISTDataset(Dataset):
+class FashionMNISTDataset(ImageDataset):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-
+        self.shape = (28, 28)
     def _load(self, booleanize_threshold: int = 75):
         (self.X_train, self.Y_train), (self.X_test, self.Y_test) = fashion_mnist.load_data()
         
@@ -176,6 +214,23 @@ class FashionMNISTDataset(Dataset):
         self.X_train = self.X_train.reshape(self.X_train.shape[0], 28*28)
         self.X_test = self.X_test.reshape(self.X_test.shape[0], 28*28)
 
+class KMNISTDataset(ImageDataset):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.shape = (28, 28)
+
+    def _load(self, booleanize_threshold: float = 75):
+        train = KMNIST(root="data", download=True, train=True, transform=transforms.ToTensor())
+        test = KMNIST(root="data", download=True, train=False, transform=transforms.ToTensor())
+        self.X_train, self.Y_train = train.data.numpy(), train.targets.numpy()
+        self.X_test, self.Y_test = test.data.numpy(), test.targets.numpy()
+
+        self.X_train = self.X_train.reshape(self.X_train.shape[0], 28*28)
+        self.X_test = self.X_test.reshape(self.X_test.shape[0], 28*28)
+
+        self.X_train = np.where(self.X_train > booleanize_threshold, 1, 0)
+        self.X_test = np.where(self.X_test > booleanize_threshold, 1, 0)
+        
 class MNIST3DDataset(Dataset):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -193,22 +248,6 @@ class MNIST3DDataset(Dataset):
         self.X_train = self.X_train.reshape(self.X_train.shape[0], 16*16*16)
         self.X_test = self.X_test.reshape(self.X_test.shape[0], 16*16*16)
 
-class KMNISTDataset(Dataset):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    def _load(self, booleanize_threshold: float = 75):
-        train = KMNIST(root="data", download=True, train=True, transform=transforms.ToTensor())
-        test = KMNIST(root="data", download=True, train=False, transform=transforms.ToTensor())
-        self.X_train, self.Y_train = train.data.numpy(), train.targets.numpy()
-        self.X_test, self.Y_test = test.data.numpy(), test.targets.numpy()
-
-        self.X_train = self.X_train.reshape(self.X_train.shape[0], 28*28)
-        self.X_test = self.X_test.reshape(self.X_test.shape[0], 28*28)
-
-        self.X_train = np.where(self.X_train > booleanize_threshold, 1, 0)
-        self.X_test = np.where(self.X_test > booleanize_threshold, 1, 0)
-        
 
 if __name__ == "__main__":
     dataset = IMDBDataset()

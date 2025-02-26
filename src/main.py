@@ -32,10 +32,12 @@ if __name__ == "__main__":
     # load datasets.
     print("Loading datasets...")
     kmnist_dataset = load_or_create(os.path.join("data", "kmnist_dataset.pkl"), KMNISTDataset)
+    #kmnist_x2_dataset = load_or_create(os.path.join("data", "kmnist_x2_dataset.pkl"), KMNISTDataset, scale_factor=2)
     mnist3d_dataset = load_or_create(os.path.join("data", "mnist3d_dataset.pkl"), MNIST3DDataset)
     mnist_dataset = load_or_create(os.path.join("data", "mnist_dataset.pkl"), MNISTDataset)
     fashion_mnist_dataset = load_or_create(os.path.join("data", "fashion_mnist_dataset.pkl"), FashionMNISTDataset)
     imdb_dataset = load_or_create(os.path.join("data", "imdb_dataset.pkl"), IMDBDataset)
+
     print("Datasets loaded")
     
     # run distilled experiments
@@ -64,14 +66,17 @@ if __name__ == "__main__":
     downsample_dir = os.path.join("results", "downsample")
     downsample_experiments = [        
         # (fashion_mnist_dataset, "FashionMNIST-Downsample", { "teacher_num_clauses": 800, "student_num_clauses": 150, "T": 60, "s": 20.0,"teacher_epochs": 20, "student_epochs": 80 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
-        #(mnist_dataset, "MNIST-Downsample-1200", { "teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 80 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40], {"overwrite": False}),
+        # (mnist_dataset, "MNIST-Downsample-1200", { "teacher_num_clauses": 1200, "student_num_clauses": 100, "T": 40, "s": 7.5,"teacher_epochs": 20, "student_epochs": 80 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40], {"overwrite": False}),
         # (mnist3d_dataset, "MNIST3D-Downsample", { "teacher_num_clauses": 1500, "student_num_clauses": 50, "T": 100, "s": 3.0, "teacher_epochs": 20, "student_epochs": 70 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
-        (mnist3d_dataset, "MNIST3D-Downsample-Take-2-Long", { "teacher_num_clauses": 1500, "student_num_clauses": 250, "T": 100, "s": 3.0, "teacher_epochs": 80, "student_epochs": 240 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
-        (kmnist_dataset, "KMNIST-Downsample-Take-2-Long", {"teacher_num_clauses": 1600, "student_num_clauses": 200, "T": 100, "s": 8.2, "teacher_epochs": 80, "student_epochs": 240 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
-        (mnist_dataset, "MNIST-Downsample-Small-Long", {"teacher_num_clauses": 400, "student_num_clauses": 100, "T": 10, "s": 7.0,"teacher_epochs": 80, "student_epochs": 240 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
-        (mnist_dataset, "MNIST-Downsample-Huge-Long", { "teacher_num_clauses": 3500, "student_num_clauses": 500, "T": 100, "s": 7.0,"teacher_epochs": 80, "student_epochs": 240 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
-        (imdb_dataset, "IMDB-Downsample-Take-2", {"teacher_num_clauses": 10000, "student_num_clauses": 2000, "T": 6000, "s": 4.0, "teacher_epochs": 30, "student_epochs": 90 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35], {"overwrite": False}),
-        #(mnist_dataset, "MNIST-Downsample-Half-Clauses", { "teacher_num_clauses": 2000, "student_num_clauses": 1000, "T": 6400, "s": 5.0,"teacher_epochs": 30, "student_epochs": 60 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False})
+        #(kmnist_x2_dataset, "KMNIST-Downsample-Scaled", {"teacher_num_clauses": 400, "student_num_clauses": 100, "T": 100, "s": 5, "teacher_epochs": 50, "student_epochs": 100 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40], {"overwrite": False}),
+        (kmnist_dataset, "KMNIST-Downsample-Take-3", {"teacher_num_clauses": 400, "student_num_clauses": 100, "T": 100, "s": 5, "teacher_epochs": 50, "student_epochs": 100 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.22, 0.25, 0.30, 0.35, 0.40], {"overwrite": False}),
+        # (mnist_dataset, "MNIST-Downsample-Take-5", {"teacher_num_clauses": 800, "student_num_clauses": 100, "T": 10, "s": 7.0,"teacher_epochs": 50, "student_epochs": 100 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
+        # (mnist_dataset, "MNIST-Downsample-Take-6", {"teacher_num_clauses": 400, "student_num_clauses": 100, "T": 10, "s": 7.0,"teacher_epochs": 50, "student_epochs": 100 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
+        # (mnist_dataset, "MNIST-Downsample-Take-7", {"teacher_num_clauses": 800, "student_num_clauses": 200, "T": 10, "s": 7.0,"teacher_epochs": 50, "student_epochs": 100 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
+        # (mnist_dataset, "MNIST-Downsample-Medium-Longish", { "teacher_num_clauses": 2000, "student_num_clauses": 500, "T": 100, "s": 7.0,"teacher_epochs": 50, "student_epochs": 100 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
+        # (mnist3d_dataset, "MNIST3D-Downsample-Take-2", { "teacher_num_clauses": 1500, "student_num_clauses": 250, "T": 100, "s": 7.0, "teacher_epochs": 20, "student_epochs": 70 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False}),
+        # (imdb_dataset, "IMDB-Downsample-Take-2", {"teacher_num_clauses": 10000, "student_num_clauses": 2500, "T": 6000, "s": 4.0, "teacher_epochs": 30, "student_epochs": 90 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35], {"overwrite": False}),
+        # (mnist_dataset, "MNIST-Downsample-Half-Clauses", { "teacher_num_clauses": 2000, "student_num_clauses": 1000, "T": 6400, "s": 5.0,"teacher_epochs": 30, "student_epochs": 60 }, [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45], {"overwrite": False})
     ]
     
     print("Running downsample experiments")
